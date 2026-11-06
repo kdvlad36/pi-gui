@@ -1748,6 +1748,15 @@ export class DesktopAppStore {
       return;
     }
 
+    // The saved patterns already enable some of this provider's models, so the list is deliberate:
+    // appending every matched id would turn a pattern into a long explicit list.
+    const providerIsControlled = snapshot.models.some(
+      (model) => model.available && model.providerId === providerId && model.scope !== "off",
+    );
+    if (providerIsControlled) {
+      return;
+    }
+
     const nextPatterns = mergeEnabledModelPatterns(currentPatterns, providerModelPatterns);
     if (nextPatterns.length === currentPatterns.length) {
       return;

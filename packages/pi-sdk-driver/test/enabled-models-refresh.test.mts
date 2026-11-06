@@ -7,8 +7,9 @@ import { RuntimeSupervisor } from "../dist/runtime-supervisor.js";
 
 const PROVIDER = "repro-provider";
 const PATTERN = `${PROVIDER}/model-*`;
+const OTHER_PATTERN = "unrelated-provider/model-*";
 
-function registerModels(): { id: string; name: string; input: string[] }[] {
+function registeredModels(): { id: string; name: string; input: string[] }[] {
   return [1, 2, 3, 4].map((index) => ({
     id: `model-${index}`,
     name: `Repro Model ${index}`,
@@ -16,7 +17,7 @@ function registerModels(): { id: string; name: string; input: string[] }[] {
   }));
 }
 
-async function createFixture() {
+async function createFixture(enabledModels: readonly string[]) {
   const root = await mkdtemp(join(tmpdir(), "pi-gui-enabled-models-"));
   const agentDir = join(root, "agent");
   const workspacePath = join(root, "workspace");
@@ -25,7 +26,7 @@ async function createFixture() {
   await writeFile(join(agentDir, "auth.json"), "{}");
   await writeFile(
     join(agentDir, "settings.json"),
-    JSON.stringify({ packages: [], enabledModels: [PATTERN] }, null, 2),
+    JSON.stringify({ packages: [], enabledModels: [...enabledModels] }, null, 2),
   );
   await writeFile(join(agentDir, "models.json"), JSON.stringify({ providers: {} }));
 
@@ -40,7 +41,7 @@ async function createFixture() {
             baseUrl: "http://localhost:9/v1",
             apiKey: "test-key",
             api: "openai-completions",
-            models: registerModels(),
+            models: registeredModels(),
           });
         },
       },
@@ -61,8 +62,15 @@ async function readEnabledModels(agentDir: string): Promise<unknown> {
   return settings.enabledModels;
 }
 
+function login(supervisor: RuntimeSupervisor, workspace: { workspaceId: string; path: string; displayName: string }) {
+  return supervisor.login(workspace, PROVIDER, {
+    onAuth: () => undefined,
+    onPrompt: async () => "test-key",
+  });
+}
+
 test("refreshRuntime keeps a pattern-only enabledModels list instead of listing every model", async () => {
-  const { agentDir, workspace, supervisor } = await createFixture();
+  const { agentDir, workspace, supervisor } = await createFixture([PATTERN]);
 
   const snapshot = await supervisor.getRuntimeSnapshot(workspace);
   const available = snapshot.models.filter((model) => model.available);
@@ -78,13 +86,10 @@ test("refreshRuntime keeps a pattern-only enabledModels list instead of listing 
   );
 });
 
-test("login keeps a pattern-only enabledModels list instead of listing every model", async () => {
-  const { agentDir, workspace, supervisor } = await createFixture();
+test("login keeps the saved patterns when they already enable models of that provider", async () => {
+  const { agentDir, workspace, supervisor } = await createFixture([PATTERN]);
 
-  await supervisor.login(workspace, PROVIDER, {
-    onAuth: () => undefined,
-    onPrompt: async () => "test-key",
-  });
+  await login(supervisor, workspace);
 
   assert.deepEqual(
     await readEnabledModels(agentDir),
@@ -93,14 +98,14 @@ test("login keeps a pattern-only enabledModels list instead of listing every mod
   );
 });
 
-test("setProviderApiKey keeps a pattern-only enabledModels list instead of listing every model", async () => {
-  const { agentDir, workspace, supervisor } = await createFixture();
+test("login still enables every model of a provider the saved patterns do not cover", async () => {
+  const { agentDir, workspace, supervisor } = await createFixture([OTHER_PATTERN]);
 
-  await supervisor.setProviderApiKey(workspace, PROVIDER, "test-key");
+  await login(supervisor, workspace);
 
   assert.deepEqual(
     await readEnabledModels(agentDir),
-    [PATTERN],
-    "setProviderApiKey must not expand saved patterns into explicit model ids",
+    [OTHER_PATTERN, `${PROVIDER}/model-1`, `${PROVIDER}/model-2`, `${PROVIDER}/model-3`, `${PROVIDER}/model-4`],
+    "a provider with no enabled model must be added to the list",
   );
 });

@@ -858,12 +858,21 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     const providers = await this.buildProviderRecords(context);
     const models = await this.buildModelRecords(context);
     const hasSelectableModels = models.some((model) => model.available && model.scope !== "off");
-    const candidateProviderIds =
+    // A provider that the saved patterns already enable stays under the user's control: appending
+    // its models as explicit ids turns a pattern such as `openrouter/z-ai/glm-5*` into that pattern
+    // plus every id it already matched. Only a provider with no enabled model needs the help.
+    const controlledProviderIds = new Set(
+      models
+        .filter((model) => model.available && model.scope !== "off")
+        .map((model) => model.providerId),
+    );
+    const candidateProviderIds = (
       providerIds && providerIds.length > 0
         ? providerIds
         : hasSelectableModels
           ? []
-          : providers.filter((provider) => provider.hasAuth).map((provider) => provider.id);
+          : providers.filter((provider) => provider.hasAuth).map((provider) => provider.id)
+    ).filter((providerId) => !controlledProviderIds.has(providerId));
     if (candidateProviderIds.length === 0) {
       return;
     }
