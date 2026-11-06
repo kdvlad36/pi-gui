@@ -114,6 +114,13 @@ export interface RuntimeSupervisorOptions {
   readonly builtinExtensions?: readonly BuiltinExtension[];
   readonly isBuiltinExtensionEnabled?: BuiltinExtensionEnabled;
   readonly customProviderStore?: CustomProviderStore;
+  /**
+   * Scope every model gets while no `enabledModels` pattern is saved. pi itself treats an unset
+   * list as "every available model"; the desktop app passes `"off"` so a fresh install lists no
+   * model until the user enables one in Settings > Models, and nothing re-enables models behind
+   * the user's back.
+   */
+  readonly enabledModelsWhenUnset?: "all" | "off";
 }
 
 type ResourceScope = "user" | "project";
@@ -131,6 +138,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
   private readonly builtinExtensions: readonly BuiltinExtension[];
   private readonly isBuiltinExtensionEnabled: BuiltinExtensionEnabled;
   private readonly customProviderStore: CustomProviderStore;
+  private readonly enabledModelsWhenUnset: "all" | "off";
   private readonly contexts = new Map<string, RuntimeContext>();
 
   constructor(options: RuntimeSupervisorOptions = {}) {
@@ -141,6 +149,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     this.builtinExtensions = options.builtinExtensions ?? [];
     this.isBuiltinExtensionEnabled = options.isBuiltinExtensionEnabled ?? (() => true);
     this.customProviderStore = deps.customProviderStore;
+    this.enabledModelsWhenUnset = options.enabledModelsWhenUnset ?? "all";
   }
 
   async getRuntimeSnapshot(workspace: WorkspaceRef): Promise<RuntimeSnapshot> {
@@ -417,7 +426,11 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     patterns: readonly string[],
   ): Promise<readonly RuntimeModelRecord[]> {
     const context = await this.ensureContext(workspace);
-    const scopeOf = await resolveModelScopes(patterns, context.modelRuntime);
+    const scopeOf = await resolveModelScopes(
+      patterns,
+      context.modelRuntime,
+      this.enabledModelsWhenUnset,
+    );
     return models.map((model) => ({ ...model, scope: scopeOf(model) }));
   }
 
@@ -821,6 +834,7 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     const scopeOf = await resolveModelScopes(
       context.settingsManager.getEnabledModels() ?? [],
       runtime,
+      this.enabledModelsWhenUnset,
     );
 
     return runtime
@@ -850,6 +864,12 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
     context: RuntimeContext,
     providerIds?: readonly string[],
   ): Promise<void> {
+    // With `"off"` an unset list means "nothing enabled", which is a state the user asked for:
+    // enabling models is the user's move in Settings > Models, never this supervisor's.
+    if (this.enabledModelsWhenUnset === "off") {
+      return;
+    }
+
     const currentPatterns = context.settingsManager.getEnabledModels() ?? [];
     if (currentPatterns.length === 0) {
       return;

@@ -304,6 +304,9 @@ export class DesktopAppStore {
     const driverOptions: PiSdkDriverConfig = {
       catalogStorage: this.catalogStore,
       ...(options.driverOptions ?? {}),
+      // No saved `enabledModels` means no model is enabled: the user picks models in
+      // Settings > Models and nothing enables them on the user's behalf.
+      enabledModelsWhenUnset: "off",
       isBuiltinExtensionEnabled: (name) => !this.disabledBuiltinExtensions.has(name),
       extensionFlagValuesForSession: (sessionRef) =>
         this.sessionState.extensionFlagsBySession.get(sessionKey(sessionRef)),
@@ -1629,7 +1632,6 @@ export class DesktopAppStore {
     return this.withErrorHandling(async () => {
       const snapshot = await this.driver.runtimeSupervisor.login(ws, providerId, callbacks);
       this.runtimeByWorkspace.set(workspaceId, snapshot);
-      await this.autoEnableModelsForConnectedProvider(targetWorkspaceId, providerId, snapshot);
       await this.refreshSessionCommandsForWorkspace(workspaceId);
       return this.refreshState({ clearLastError: true });
     });
@@ -1725,65 +1727,6 @@ export class DesktopAppStore {
       this.runtimeByWorkspace.set(ws.workspaceId, snapshot);
       return this.refreshState({ clearLastError: true });
     });
-  }
-
-  private async autoEnableModelsForConnectedProvider(
-    workspaceId: string,
-    providerId: string,
-    snapshot: RuntimeSnapshot,
-  ): Promise<void> {
-    const providerModelPatterns = [
-      ...new Set(
-        snapshot.models
-          .filter((model) => model.available && model.providerId === providerId)
-          .map((model) => `${model.providerId}/${model.modelId}`),
-      ),
-    ];
-    if (providerModelPatterns.length === 0) {
-      return;
-    }
-
-    const currentPatterns = snapshot.settings.enabledModelPatterns;
-    if (currentPatterns.length === 0) {
-      return;
-    }
-
-    // The saved patterns already enable some of this provider's models, so the list is deliberate:
-    // appending every matched id would turn a pattern into a long explicit list.
-    const providerIsControlled = snapshot.models.some(
-      (model) => model.available && model.providerId === providerId && model.scope !== "off",
-    );
-    if (providerIsControlled) {
-      return;
-    }
-
-    const nextPatterns = mergeEnabledModelPatterns(currentPatterns, providerModelPatterns);
-    if (nextPatterns.length === currentPatterns.length) {
-      return;
-    }
-
-    if (this.state.modelSettingsScopeMode !== "per-repo") {
-      const ownerWorkspace = this.workspaceRefFromState(workspaceId);
-      if (!ownerWorkspace) {
-        return;
-      }
-      const updatedSnapshot = await this.driver.runtimeSupervisor.setScopedModelPatterns(
-        ownerWorkspace,
-        nextPatterns,
-      );
-      this.runtimeByWorkspace.set(workspaceId, updatedSnapshot);
-      return;
-    }
-
-    const ownerWorkspace = this.workspaceRefFromState(workspaceId);
-    if (!ownerWorkspace) {
-      return;
-    }
-    const updatedSnapshot = await this.driver.runtimeSupervisor.setProjectScopedModelPatterns(
-      ownerWorkspace,
-      nextPatterns,
-    );
-    this.runtimeByWorkspace.set(workspaceId, updatedSnapshot);
   }
 
   async setSkillEnabled(
@@ -5053,22 +4996,6 @@ function modelSettingsEqual(left: ModelSettingsSnapshot, right: ModelSettingsSna
 
 function samePatterns(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((pattern, index) => pattern === right[index]);
-}
-
-function mergeEnabledModelPatterns(
-  existingPatterns: readonly string[],
-  providerPatterns: readonly string[],
-): readonly string[] {
-  const merged = [...existingPatterns];
-  const seen = new Set(existingPatterns);
-  for (const pattern of providerPatterns) {
-    if (seen.has(pattern)) {
-      continue;
-    }
-    seen.add(pattern);
-    merged.push(pattern);
-  }
-  return merged;
 }
 
 function reconcilePinnedSessionOrder(

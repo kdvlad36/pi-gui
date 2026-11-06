@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { join } from "node:path";
 import {
@@ -205,7 +205,7 @@ test("new thread routes disabled-model recovery to settings models", async () =>
   }
 });
 
-test("refreshing after a provider becomes available auto-enables that provider's models", async () => {
+test("refreshing after a provider becomes available keeps models off and points at Settings > Models", async () => {
   test.setTimeout(60_000);
   const userDataDir = await makeUserDataDir();
   const agentDir = join(userDataDir, "agent");
@@ -252,13 +252,20 @@ test("refreshing after a provider becomes available auto-enables that provider's
       { workspaceId: selectedWorkspaceId },
     );
 
-    await expect(modelBadge).toHaveText("Pick a model");
-    await expect(notice).toContainText("No default model set");
+    // This build never enables models on the user's behalf. The provider is connected now, so the
+    // notice switches from connecting a provider to switching models on in Settings > Models.
+    await expect(modelBadge).toHaveText("No models available");
+    await expect(notice).toContainText("Settings > Models");
+
+    const settings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as {
+      enabledModels?: unknown;
+    };
+    expect(settings.enabledModels).toEqual(["fake-provider/fake-model"]);
 
     await modelBadge.click();
     const dropdown = window.locator(".new-thread__hint .model-selector__dropdown").first();
-    await expect(dropdown).toContainText("GPT-5");
-    await expect(dropdown).toContainText("GPT-4o");
+    await expect(dropdown).toContainText("No models available");
+    await expect(dropdown).not.toContainText("GPT-5");
   } finally {
     await harness.close();
   }

@@ -49,10 +49,8 @@ export function SettingsModelsSection({
   const availableModels = models.filter((model) => model.available);
   const unconnectedModels = models.filter((model) => !model.available);
 
-  // No saved patterns means pi enables every available model.
-  const savedPatterns = runtime?.settings.enabledModelPatterns ?? [];
-  const activePatterns =
-    savedPatterns.length === 0 ? availableModels.map(modelPattern) : savedPatterns;
+  // No saved patterns means no model is enabled: the switches below are the only way in.
+  const activePatterns = runtime?.settings.enabledModelPatterns ?? [];
   const enabledModels = availableModels.filter((model) => model.scope !== "off");
 
   const defaultProvider = runtime?.settings.defaultProvider;
@@ -163,7 +161,7 @@ export function SettingsModelsSection({
                 >
                   <SettingsSwitch
                     checked={enabled}
-                    disabled={enabled && (activePatterns.length <= 1 || model.scope === "matched")}
+                    disabled={model.scope === "matched"}
                     label={t("ui.enableValue5", { pattern: pattern })}
                     onChange={(next) => setEnabled(pattern, next)}
                   />

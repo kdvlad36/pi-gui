@@ -94,3 +94,47 @@ test("app-global model settings resolve globs against the global patterns, not a
     await harness.close();
   }
 });
+
+test("connecting a custom endpoint keeps the saved glob instead of listing every matched id", async () => {
+  test.setTimeout(60_000);
+  const userDataDir = await makeUserDataDir();
+  const agentDir = join(userDataDir, "agent");
+  const workspacePath = await makeWorkspace("enabled-model-globs-endpoint-workspace");
+  await seedAgentDir(agentDir, { enabledModels: ["local-endpoint/*"] });
+
+  const harness = await launchDesktop(userDataDir, {
+    agentDir,
+    initialWorkspaces: [workspacePath],
+    scrubProviderEnv: true,
+    testMode: "background",
+  });
+
+  try {
+    const window = await harness.firstWindow();
+    await window.keyboard.press(desktopShortcut(","));
+    await expect(window.getByTestId("settings-surface")).toBeVisible();
+    await window.getByRole("button", { name: "Providers", exact: true }).click();
+    await expect(window.locator(".view-header__title")).toHaveText("Providers");
+
+    const customEndpoints = window.locator(".settings-section", {
+      has: window.locator(".settings-section__title", { hasText: "Custom endpoints" }),
+    });
+    await customEndpoints.getByRole("button", { name: "Add endpoint", exact: true }).click();
+
+    const dialog = window.getByTestId("custom-endpoint-dialog");
+    await dialog.getByLabel("Provider ID").fill("local-endpoint");
+    await dialog.getByLabel("Base URL").fill("http://localhost:11434/v1");
+    await dialog.getByLabel("Add model ID manually").fill("llama3.1");
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await dialog.getByRole("button", { name: "Add endpoint", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+
+    // Connecting the endpoint must not append the ids the glob already enables.
+    const settings = JSON.parse(await readFile(join(agentDir, "settings.json"), "utf8")) as {
+      enabledModels?: unknown;
+    };
+    expect(settings.enabledModels).toEqual(["local-endpoint/*"]);
+  } finally {
+    await harness.close();
+  }
+});

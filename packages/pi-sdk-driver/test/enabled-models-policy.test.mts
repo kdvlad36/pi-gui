@@ -9,6 +9,8 @@ const PROVIDER = "repro-provider";
 const PATTERN = `${PROVIDER}/model-*`;
 const OTHER_PATTERN = "unrelated-provider/model-*";
 
+type Policy = "all" | "off";
+
 function registeredModels(): { id: string; name: string; input: string[] }[] {
   return [1, 2, 3, 4].map((index) => ({
     id: `model-${index}`,
@@ -17,7 +19,7 @@ function registeredModels(): { id: string; name: string; input: string[] }[] {
   }));
 }
 
-async function createFixture(enabledModels: readonly string[]) {
+async function createFixture(enabledModels: readonly string[], policy: Policy = "all") {
   const root = await mkdtemp(join(tmpdir(), "pi-gui-enabled-models-"));
   const agentDir = join(root, "agent");
   const workspacePath = join(root, "workspace");
@@ -32,6 +34,7 @@ async function createFixture(enabledModels: readonly string[]) {
 
   const supervisor = new RuntimeSupervisor({
     agentDir,
+    enabledModelsWhenUnset: policy,
     builtinExtensions: [
       {
         name: "repro-provider",
@@ -62,11 +65,23 @@ async function readEnabledModels(agentDir: string): Promise<unknown> {
   return settings.enabledModels;
 }
 
-function login(supervisor: RuntimeSupervisor, workspace: { workspaceId: string; path: string; displayName: string }) {
+function login(
+  supervisor: RuntimeSupervisor,
+  workspace: { workspaceId: string; path: string; displayName: string },
+) {
   return supervisor.login(workspace, PROVIDER, {
     onAuth: () => undefined,
     onPrompt: async () => "test-key",
   });
+}
+
+function providerScopes(
+  models: readonly { providerId: string; modelId: string; scope: string }[],
+): string[] {
+  return models
+    .filter((model) => model.providerId === PROVIDER)
+    .map((model) => model.scope)
+    .sort();
 }
 
 test("refreshRuntime keeps a pattern-only enabledModels list instead of listing every model", async () => {
@@ -105,7 +120,43 @@ test("login still enables every model of a provider the saved patterns do not co
 
   assert.deepEqual(
     await readEnabledModels(agentDir),
-    [OTHER_PATTERN, `${PROVIDER}/model-1`, `${PROVIDER}/model-2`, `${PROVIDER}/model-3`, `${PROVIDER}/model-4`],
+    [
+      OTHER_PATTERN,
+      `${PROVIDER}/model-1`,
+      `${PROVIDER}/model-2`,
+      `${PROVIDER}/model-3`,
+      `${PROVIDER}/model-4`,
+    ],
     "a provider with no enabled model must be added to the list",
+  );
+});
+
+test("an unset list leaves every model off when enabledModelsWhenUnset is off", async () => {
+  const { workspace, supervisor } = await createFixture([], "off");
+
+  const snapshot = await supervisor.getRuntimeSnapshot(workspace);
+
+  assert.equal(snapshot.models.filter((model) => model.available).length, 4);
+  assert.deepEqual(providerScopes(snapshot.models), ["off", "off", "off", "off"]);
+});
+
+test("the saved patterns still enable their models when enabledModelsWhenUnset is off", async () => {
+  const { workspace, supervisor } = await createFixture([PATTERN], "off");
+
+  const snapshot = await supervisor.getRuntimeSnapshot(workspace);
+
+  assert.deepEqual(providerScopes(snapshot.models), ["matched", "matched", "matched", "matched"]);
+});
+
+test("login never enables models on its own when enabledModelsWhenUnset is off", async () => {
+  const { agentDir, workspace, supervisor } = await createFixture([], "off");
+
+  await login(supervisor, workspace);
+  await supervisor.refreshRuntime(workspace);
+
+  assert.deepEqual(
+    await readEnabledModels(agentDir),
+    [],
+    "connecting a provider must not enable its models",
   );
 });
