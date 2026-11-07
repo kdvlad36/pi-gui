@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
+import ReactMarkdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
   remarkWorkspaceFileLines,
@@ -35,7 +35,24 @@ function markdownComponents(
         );
       }
       return (
-        <a href={href} rel="noreferrer" target="_blank">
+        <a
+          href={href}
+          rel="noreferrer"
+          target="_blank"
+          onClick={
+            href?.toLowerCase().startsWith("file://")
+              ? (event) => {
+                  event.preventDefault();
+                  const api = window.piApp;
+                  if (api) {
+                    api.openLocalHtml(href).catch((error: unknown) => {
+                      console.error("Failed to open local HTML:", error);
+                    });
+                  }
+                }
+              : undefined
+          }
+        >
           {children}
         </a>
       );
@@ -81,7 +98,15 @@ export const MessageMarkdown = memo(function MessageMarkdown({
   );
   return (
     <div className="message__content" data-annotation-root={annotationRoot ? "" : undefined}>
-      <ReactMarkdown components={components} remarkPlugins={remarkPlugins}>
+      <ReactMarkdown
+        components={components}
+        remarkPlugins={remarkPlugins}
+        urlTransform={(url, key, node) =>
+          node.tagName === "a" && key === "href" && /^file:\/\//i.test(url)
+            ? url
+            : defaultUrlTransform(url)
+        }
+      >
         {text}
       </ReactMarkdown>
     </div>

@@ -1,4 +1,6 @@
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { expect, test } from "@playwright/test";
 import {
   type DesktopHarness,
@@ -7,6 +9,7 @@ import {
   makeWorkspace,
   seedAgentDir,
   seedExternalLinkSessionFixture,
+  seedNamedTextSessionFixture,
   selectSession,
 } from "../helpers/electron-app";
 
@@ -60,6 +63,72 @@ test("opens markdown web links externally without leaving the current session", 
       .toBe(1);
     expect(window.url()).toBe(appUrl);
     await expect(window.getByTestId("transcript")).toContainText("GitHub issue");
+  } finally {
+    await harness.close();
+  }
+});
+
+test("opens local HTML links and rejects missing or unsafe paths", async () => {
+  const userDataDir = await makeUserDataDir();
+  const agentDir = join(userDataDir, "agent");
+  const workspacePath = await makeWorkspace("local-html-links");
+  const htmlPath = join(workspacePath, "прототип с пробелом.html");
+  const executablePath = join(workspacePath, "program.command");
+  await writeFile(htmlPath, "<h1>Prototype</h1>");
+  await writeFile(executablePath, "echo unsafe");
+  await seedAgentDir(agentDir);
+  await seedNamedTextSessionFixture(agentDir, workspacePath, {
+    title: "Local links",
+    userText: "Open prototype",
+    assistantText: `[Prototype](${pathToFileURL(htmlPath)}) [Missing](${pathToFileURL(join(workspacePath, "missing.html"))}) [Program](${pathToFileURL(executablePath)}) [Remote](file://remote.example/tmp/a.html) [Web](https://example.com/)`,
+  });
+  const harness = await launchDesktop(userDataDir, {
+    agentDir,
+    initialWorkspaces: [workspacePath],
+    testMode: "background",
+  });
+  try {
+    const window = await harness.firstWindow();
+    await selectSession(window, "Local links");
+    await harness.electronApp.evaluate(({ shell }) => {
+      const state = globalThis as typeof globalThis & { openedPaths: string[] };
+      state.openedPaths = [];
+      shell.openPath = async (filePath: string) => {
+        state.openedPaths.push(filePath);
+        return "";
+      };
+    });
+    const openedPaths = () =>
+      harness.electronApp.evaluate(
+        () => (globalThis as typeof globalThis & { openedPaths: string[] }).openedPaths,
+      );
+    await window.getByRole("link", { name: "Prototype" }).click();
+    await expect.poll(openedPaths).toEqual([htmlPath]);
+    await window.getByRole("link", { name: "Missing" }).click();
+    await window.getByRole("link", { name: "Program" }).click();
+    await window.getByRole("link", { name: "Remote" }).click();
+    await window.evaluate(
+      async ({ htmlUrl, programUrl }) => {
+        const api = (window as unknown as { piApp: { openLocalHtml(url: string): Promise<void> } })
+          .piApp;
+        await api.openLocalHtml("not a URL");
+        await api.openLocalHtml("file:///bad%2Fname.html");
+        await api.openLocalHtml("file://remote.example/tmp/a.html");
+        await api.openLocalHtml(programUrl);
+        await api.openLocalHtml(`${htmlUrl}?query=1`);
+      },
+      { htmlUrl: pathToFileURL(htmlPath).href, programUrl: pathToFileURL(executablePath).href },
+    );
+    await expect.poll(openedPaths).toEqual([htmlPath]);
+    await harness.electronApp.evaluate(({ shell }) => {
+      shell.openPath = async () => "no handler available";
+    });
+    await window.evaluate((url) => {
+      const api = (window as unknown as { piApp: { openLocalHtml(url: string): Promise<void> } })
+        .piApp;
+      return api.openLocalHtml(url);
+    }, pathToFileURL(htmlPath).href);
+    await expect(window.getByTestId("transcript")).toContainText("Prototype");
   } finally {
     await harness.close();
   }

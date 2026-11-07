@@ -620,6 +620,8 @@ contextBridge.exposeInMainWorld("piApp", {
   minimizeWindow: () => ipcRenderer.send(desktopIpc.minimizeWindow),
   closeWindow: () => ipcRenderer.send(desktopIpc.closeWindow),
   openExternal: (url: string) => ipcRenderer.invoke(desktopIpc.openExternal, url) as Promise<void>,
+  openLocalHtml: (url: string) =>
+    ipcRenderer.invoke(desktopIpc.openLocalHtml, url) as Promise<void>,
   getThemeMode: () =>
     ipcRenderer.invoke(desktopIpc.getThemeMode) as Promise<"system" | "light" | "dark">,
   getResolvedTheme: () =>
