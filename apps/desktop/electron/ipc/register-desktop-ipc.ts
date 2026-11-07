@@ -1,5 +1,7 @@
 import { ipcMain, shell, type BrowserWindow, type IpcMainInvokeEvent } from "electron";
 import path from "node:path";
+import { stat } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import type { SessionRef } from "@pi-gui/session-driver";
 import type {
   ComposerAttachment,
@@ -239,6 +241,24 @@ export function registerDesktopIpc({
   capabilities,
 }: RegisterDesktopIpcOptions): void {
   const handleMainFrame = mainFrameHandler(windows);
+  handleMainFrame(
+    desktopIpc.openLocalHtml,
+    (raw) => expectString(raw, "url"),
+    async (url) => {
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol !== "file:" || parsed.hostname || parsed.search || parsed.hash) return;
+        const filePath = fileURLToPath(parsed);
+        // Arbitrary local files can be executable, so only HTML documents are supported.
+        if (![".html", ".htm"].includes(path.extname(filePath).toLowerCase())) return;
+        if (!(await stat(filePath)).isFile()) return;
+        const error = await shell.openPath(filePath);
+        if (error) console.error("Failed to open local HTML:", error);
+      } catch (error) {
+        console.error("Failed to open local HTML:", error);
+      }
+    },
+  );
   registerReviewRequests(handleMainFrame, owners.review);
   registerExtensionViewRequests(handleMainFrame, windows, owners.extensionViews);
   const workbench = new WorkbenchRequests(owners.workbench);

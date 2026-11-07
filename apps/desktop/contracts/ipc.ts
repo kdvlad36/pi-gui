@@ -243,6 +243,7 @@ export const desktopIpc = {
   windowFocused: "pi-gui:window-focused",
   ping: "app:ping",
   openExternal: "app:open-external",
+  openLocalHtml: "app:open-local-html",
   relaunchApplication: "pi-gui:relaunch-application",
 } as const;
 
@@ -932,6 +933,7 @@ export interface PiDesktopApi {
   minimizeWindow(): void;
   closeWindow(): void;
   openExternal(url: string): Promise<void>;
+  openLocalHtml(url: string): Promise<void>;
   getThemeMode(): Promise<"system" | "light" | "dark">;
   getResolvedTheme(): Promise<"light" | "dark">;
   setThemeMode(mode: "system" | "light" | "dark"): Promise<DesktopAppState>;
