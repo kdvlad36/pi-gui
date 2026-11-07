@@ -82,6 +82,15 @@ export default function customMessageExtension(pi) {
     },
   });
 
+  pi.registerCommand("bg-check", {
+    description: "Post background job results",
+    handler: async () => {
+      pi.sendMessage({ customType: "bg-jobs", content: "Фоновая задача «Проверка» завершилась успешно, 20 с.\nКоманда: pnpm test\nЛог: /tmp/output.log\n\nХвост лога:\n# не заголовок\nOK\n\nПолный вывод: bg_logs, состояние всех задач: bg_status.", display: true });
+      pi.sendMessage({ customType: "bg-jobs", content: "Фоновая задача «Типы» завершилась с кодом 2, 6 с.\nКоманда: pnpm typecheck\n\nХвост лога:\nsrc/a.ts: error TS18048\n\nПолный вывод: bg_logs, состояние всех задач: bg_status.", display: true });
+      pi.sendMessage({ customType: "bg-jobs", content: "Незнакомый формат\n# всё равно текст", display: true });
+    },
+  });
+
   pi.registerCommand("ci-note", {
     description: "Post a CI note into the transcript",
     handler: async () => {
@@ -179,6 +188,23 @@ test("extension custom messages show like terminal pi, live and after relaunch",
     const window = await secondRun.firstWindow();
     await selectSession(window, "New thread");
     await expectConversation(window);
+    const composer = window.getByTestId("composer");
+    await composer.fill("/bg-check ");
+    await composer.press("Enter");
+    const jobs = window.getByTestId("bg-job-message");
+    await expect(jobs).toHaveCount(3);
+    await expect(jobs.nth(0)).toContainText("Проверка");
+    await expect(jobs.nth(0)).toContainText("Успешно · 20 с");
+    await expect(jobs.nth(0)).not.toContainText("# не заголовок");
+    await expect(jobs.nth(1)).toContainText("завершилась с кодом 2");
+    await expect(jobs.nth(1)).toContainText("Строка журнала: src/a.ts: error TS18048");
+    await expect(jobs.nth(2)).toContainText("Результат доступен");
+    await jobs.nth(0).getByRole("button").click();
+    await expect(jobs.nth(0).getByRole("button")).toHaveAttribute("aria-expanded", "true");
+    await expect(jobs.nth(0).locator("pre")).toContainText("# не заголовок");
+    await expect(jobs.nth(0).locator("h1")).toHaveCount(0);
+    await jobs.nth(2).getByRole("button").click();
+    await expect(jobs.nth(2).locator("pre")).toHaveText("Незнакомый формат\n# всё равно текст");
   } finally {
     await secondRun.close();
   }
