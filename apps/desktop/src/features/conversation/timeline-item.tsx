@@ -26,6 +26,7 @@ import { SentAnnotations } from "./annotations/sent-annotations";
 import { ExtensionCardItem, type RunExtensionAction } from "./extension-card";
 import { ImageAttachmentThumb } from "./image-attachment-thumb";
 import { MessageMarkdown } from "./message-markdown";
+import { BgJobMessage } from "./bg-job-message";
 import { stringifyToolValue, toolOutputImages } from "./tool-output-images";
 import { TurnChangesCard, type OpenTurnChange } from "./turn-changes-card";
 import type { WorkspaceFileLine } from "./workspace-file-line";
@@ -119,6 +120,7 @@ function unhandledTimelineItem(item: never): null {
 
 /** An extension message, drawn like terminal pi: its customType labels the markdown. */
 function TimelineCustomMessage({ item }: { readonly item: SessionTranscriptCustomMessage }) {
+  if (item.customType === "bg-jobs") return <BgJobMessage text={item.text} />;
   return (
     <article className="timeline-item timeline-item--custom" data-testid="timeline-custom-message">
       <div className="timeline-item__custom-type">{item.customType}</div>
