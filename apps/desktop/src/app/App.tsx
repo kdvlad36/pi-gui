@@ -85,12 +85,14 @@ import {
   useDismissibleExtensionDock,
 } from "../features/extensions/extension-session-ui";
 import { PinnedCards, usePinnedCards } from "../features/extensions/pinned-cards";
-import { TreeModal } from "../features/conversation/tree-modal";
-import { ForkModal } from "../features/conversation/fork-modal";
+import { MessageRewindContext, useMessageRewind } from "../features/conversation/message-rewind";
 import { getEffectiveModelRuntime } from "../features/settings/model-settings";
 import { applyTheme, getActiveTheme, useActiveTheme } from "../ui/active-theme";
 import { deriveWorkspaceContext } from "./workspace-context";
-import { useTreeForkModals } from "../features/conversation/hooks/use-tree-fork-modals";
+import {
+  TreeForkModals,
+  useTreeForkModals,
+} from "../features/conversation/hooks/use-tree-fork-modals";
 import { useComposerDraftSync } from "../features/conversation/hooks/use-composer-draft-sync";
 import { useSessionComposer } from "../features/conversation/hooks/use-session-composer";
 import { useTranscriptAnnotations } from "../features/conversation/annotations/use-transcript-annotations";
@@ -479,17 +481,7 @@ export default function App() {
     );
   };
 
-  const {
-    treeModalState,
-    forkModalState,
-    closeTreeModal,
-    openTreeModal,
-    navigateTreeSelection,
-    closeForkModal,
-    openForkModal,
-    handleForkSubmit,
-    canUseWorktree,
-  } = useTreeForkModals({
+  const treeForkModals = useTreeForkModals({
     api,
     snapshot,
     setSnapshot,
@@ -498,6 +490,21 @@ export default function App() {
     selectedSessionKey,
     rootWorkspace,
     activeView: snapshot?.activeView,
+    setComposerDraft,
+    focusComposer,
+  });
+
+  const { openTreeModal, openForkModal } = treeForkModals;
+  const messageRewind = useMessageRewind({
+    api,
+    target:
+      selectedWorkspace && selectedSession
+        ? { workspaceId: selectedWorkspace.id, sessionId: selectedSession.id }
+        : undefined,
+    sessionKey: selectedSessionKey,
+    running: selectedSessionRunning,
+    composerDraft,
+    setSnapshot,
     setComposerDraft,
     focusComposer,
   });
@@ -1171,28 +1178,30 @@ export default function App() {
                     </div>
                   ) : null}
 
-                  <ConversationTimeline
-                    key={selectedSessionKey}
-                    transcript={pins.timeline}
-                    running={selectedSessionRunning}
-                    isTranscriptLoading={isTranscriptLoading}
-                    transcriptFailed={transcriptFailed}
-                    onRetryTranscript={desktop.retry}
-                    viewport={viewport}
-                    threadSearch={threadSearch}
-                    onViewFileInDiff={handleViewFileInDiff}
-                    onOpenTurnChange={turnChanges.openTurnChange}
-                    onOpenWorkspaceFileLine={handleOpenWorkspaceFileLine}
-                    onExtensionAction={runExtensionCardAction}
-                    extensionToolLabels={extensionToolLabels}
-                    workspacePath={selectedWorkspace.path}
-                    onForkFromMessage={
-                      selectedSession.status === "running" ? undefined : openForkModal
-                    }
-                    scheduledOrigins={scheduledOrigins}
-                    annotations={transcriptAnnotations}
-                    platform={api?.platform ?? "linux"}
-                  />
+                  <MessageRewindContext.Provider value={messageRewind.rewind}>
+                    <ConversationTimeline
+                      key={selectedSessionKey}
+                      transcript={pins.timeline}
+                      running={selectedSessionRunning}
+                      isTranscriptLoading={isTranscriptLoading}
+                      transcriptFailed={transcriptFailed}
+                      onRetryTranscript={desktop.retry}
+                      viewport={viewport}
+                      threadSearch={threadSearch}
+                      onViewFileInDiff={handleViewFileInDiff}
+                      onOpenTurnChange={turnChanges.openTurnChange}
+                      onOpenWorkspaceFileLine={handleOpenWorkspaceFileLine}
+                      onExtensionAction={runExtensionCardAction}
+                      extensionToolLabels={extensionToolLabels}
+                      workspacePath={selectedWorkspace.path}
+                      onForkFromMessage={
+                        selectedSession.status === "running" ? undefined : openForkModal
+                      }
+                      scheduledOrigins={scheduledOrigins}
+                      annotations={transcriptAnnotations}
+                      platform={api?.platform ?? "linux"}
+                    />
+                  </MessageRewindContext.Provider>
                 </div>
               </section>
               {scheduledBinding ? (
@@ -1284,26 +1293,8 @@ export default function App() {
                   onRespond={handleRespondToExtensionDialog}
                 />
               ) : null}
-              {treeModalState.open ? (
-                <TreeModal
-                  error={treeModalState.error}
-                  loading={treeModalState.loading}
-                  submitting={treeModalState.submitting}
-                  tree={treeModalState.tree}
-                  onClose={closeTreeModal}
-                  onNavigate={navigateTreeSelection}
-                />
-              ) : null}
-              {forkModalState.open ? (
-                <ForkModal
-                  error={forkModalState.error}
-                  submitting={forkModalState.submitting}
-                  messagePreview={forkModalState.messagePreview}
-                  canUseWorktree={canUseWorktree}
-                  onClose={closeForkModal}
-                  onSubmit={handleForkSubmit}
-                />
-              ) : null}
+              <TreeForkModals modals={treeForkModals} />
+              {messageRewind.layer}
             </>
           ) : selectedWorkspace ? (
             <section className="canvas canvas--empty">

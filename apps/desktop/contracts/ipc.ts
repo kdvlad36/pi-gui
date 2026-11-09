@@ -220,6 +220,8 @@ export const desktopIpc = {
   pendingComposerDraftFlushed: "pi-gui:pending-composer-draft-flushed",
   submitComposer: "pi-gui:submit-composer",
   getSessionTree: "pi-gui:get-session-tree",
+  prepareMessageRewind: "pi-gui:prepare-message-rewind",
+  applyMessageRewind: "pi-gui:apply-message-rewind",
   navigateSessionTree: "pi-gui:navigate-session-tree",
   toggleWindowMaximize: "pi-gui:toggle-window-maximize",
   minimizeWindow: "pi-gui:minimize-window",
@@ -924,6 +926,13 @@ export interface PiDesktopApi {
   closeExtensionView(connectionId: string): Promise<void>;
   onExtensionViewMessage(listener: (event: ExtensionViewMessage) => void): () => void;
   onExtensionViewCatalogChanged(listener: (event: ExtensionViewCatalogChange) => void): () => void;
+  prepareMessageRewind(
+    input: import("./message-rewind").MessageRewindInput,
+  ): Promise<import("./message-rewind").MessageRewindPlan>;
+  applyMessageRewind(
+    id: string,
+    restoreFiles: boolean,
+  ): Promise<import("./message-rewind").MessageRewindResult>;
   getTurnChanges(input: TurnChangesInput): Promise<TurnChangesResult>;
   getReview(input: GetReviewInput): Promise<ReviewResult>;
   getReviewFile(input: ReviewFileInput): Promise<ReviewFileResult>;

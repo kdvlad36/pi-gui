@@ -37,6 +37,7 @@ import {
 import { performExtensionViewHostAction } from "./extensions/extension-view-actions";
 import { extensionFrameDocument } from "./extensions/extension-frame-document";
 import { ReviewOwner } from "./workbench/review-owner";
+import { MessageRewindOwner } from "./workbench/message-rewind-owner";
 import { registerDesktopIpc } from "./ipc/register-desktop-ipc";
 import {
   createOrchestrationRuntimeExtension,
@@ -1156,6 +1157,7 @@ app
         state: store,
         workbench: store,
         extensionViews,
+        messageRewind: new MessageRewindOwner(store, checkpoints, app.getPath("userData")),
         review: new ReviewOwner({
           checkpoints,
           userDataDir: app.getPath("userData"),

@@ -30,6 +30,7 @@ import type { DesktopExtensionViewOwner } from "../extensions/extension-view-own
 import { registerExtensionViewRequests } from "./extension-view-requests";
 import { registerReviewRequests, type ReviewRequestsOwner } from "./review-requests";
 import { mainFrameHandler } from "./main-frame-ipc";
+import type { MessageRewindOwner } from "../workbench/message-rewind-owner";
 import { assertComposerAttachmentPixels } from "./composer-attachment-pixels";
 import {
   expectAppView,
@@ -174,6 +175,7 @@ export interface DesktopIpcOwners {
   readonly state: StateOwner;
   readonly workbench: WorkbenchOwner;
   readonly review: ReviewRequestsOwner;
+  readonly messageRewind: MessageRewindOwner;
   readonly extensionViews: DesktopExtensionViewOwner;
   readonly workspace: WorkspaceOwner;
   readonly conversation: ConversationOwner;
@@ -258,6 +260,31 @@ export function registerDesktopIpc({
         console.error("Failed to open local HTML:", error);
       }
     },
+  );
+  handleMainFrame(
+    desktopIpc.prepareMessageRewind,
+    (raw) => {
+      const input = expectRecord(raw, "message rewind");
+      return {
+        target: expectSessionTarget(input.target),
+        messageId: expectNonEmptyString(input.messageId, "messageId"),
+      };
+    },
+    (input) => owners.messageRewind.prepare(input),
+  );
+  handleMainFrame(
+    desktopIpc.applyMessageRewind,
+    (raw) => {
+      const input = expectRecord(raw, "message rewind");
+      return {
+        id: expectNonEmptyString(input.id, "id"),
+        restoreFiles: expectBoolean(input.restoreFiles, "restoreFiles"),
+      };
+    },
+    (input, request) =>
+      windows.runStateResultAction(request.window, () =>
+        owners.messageRewind.apply(input.id, input.restoreFiles),
+      ),
   );
   registerReviewRequests(handleMainFrame, owners.review);
   registerExtensionViewRequests(handleMainFrame, windows, owners.extensionViews);

@@ -152,6 +152,9 @@ contextBridge.exposeInMainWorld("piApp", {
       desktopIpc.runExtensionAction,
       request,
     ) as Promise<ExtensionActionEffect | null>,
+  prepareMessageRewind: (input) => ipcRenderer.invoke(desktopIpc.prepareMessageRewind, input),
+  applyMessageRewind: (id, restoreFiles) =>
+    ipcRenderer.invoke(desktopIpc.applyMessageRewind, { id, restoreFiles }),
   getTurnChanges: (input: TurnChangesInput) =>
     ipcRenderer.invoke(desktopIpc.getTurnChanges, input) as Promise<TurnChangesResult>,
   getReview: (input: GetReviewInput) =>

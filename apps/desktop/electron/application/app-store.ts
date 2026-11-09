@@ -1215,6 +1215,71 @@ export class DesktopAppStore {
     return this.conversationOwner.cancelCurrentRun(sessionRef);
   }
 
+  async validateMessageRewind(target: WorkspaceSessionTarget, messageId: string) {
+    await this.initialize();
+    const ref = toSessionRef(target);
+    await this.ensureSessionReady(ref);
+    const session = this.sessionFromState(ref);
+    const checkout = this.getWorkspacePath(ref.workspaceId);
+    const busyCheckout = this.state.workspaces.some(
+      (workspace) =>
+        workspace.path === checkout &&
+        workspace.sessions.some((candidate) => candidate.status === "running"),
+    );
+    if (
+      !session ||
+      busyCheckout ||
+      this.sessionState.queuedComposerMessagesBySession.get(sessionKey(ref))?.length
+    ) {
+      throw new Error("Дождись завершения ответа и отправки очереди сообщений.");
+    }
+    if (this.sessionState.composerAttachmentsBySession.get(sessionKey(ref))?.length) {
+      throw new Error("Сначала сохрани или убери вложения из поля ввода.");
+    }
+    const transcript = await this.driver.getTranscript(ref);
+    let message = transcript.find(
+      (entry) => entry.kind === "message" && (entry.sourceMessageId ?? entry.id) === messageId,
+    );
+    if (!message) {
+      // Live rows retain renderer identities. Resolve against the same visible sequence,
+      // then pin the native entry id before making any asynchronous file plan.
+      const visible = (this.sessionState.transcriptCache.get(sessionKey(ref)) ?? []).filter(
+        (entry) => entry.kind === "message",
+      );
+      const index = visible.findIndex((entry) => entry.id === messageId);
+      const source = index >= 0 ? visible[index] : undefined;
+      const persisted = transcript.filter((entry) => entry.kind === "message");
+      const candidate = persisted[index];
+      const sameSequence =
+        visible.length === persisted.length &&
+        visible.every(
+          (entry, position) =>
+            entry.role === persisted[position]?.role && entry.text === persisted[position]?.text,
+        );
+      if (
+        sameSequence &&
+        source?.kind === "message" &&
+        candidate?.kind === "message" &&
+        source.role === candidate.role &&
+        source.text === candidate.text
+      )
+        message = candidate;
+    }
+    if (!message || message.kind !== "message" || message.role !== "user") {
+      throw new Error("Исходное сообщение недоступно. Обнови диалог.");
+    }
+    if (message.attachments?.length) {
+      throw new Error(
+        "Возврат сообщений с вложениями пока недоступен: вложения не будут потеряны.",
+      );
+    }
+    return {
+      messageId: message.sourceMessageId ?? message.id,
+      text: message.text,
+      draft: this.sessionState.composerDraftsBySession.get(sessionKey(ref)) ?? "",
+    };
+  }
+
   async getSessionTree(target: WorkspaceSessionTarget): Promise<SessionTreeSnapshot> {
     await this.initialize();
     const sessionRef = toSessionRef(target);

@@ -1647,6 +1647,9 @@ export class SessionSupervisor {
       };
     }
 
+    // Pi's branch/resetLeaf only move an in-memory pointer. A hidden public custom
+    // entry pins the new path in the append-only session file, including an empty root.
+    session.sessionManager.appendCustomEntry("pi-gui:tree-navigation", { targetId });
     record.updatedAt = nowIso();
     await this.syncRecordAfterSessionMutation(record, { emitUpdate: true });
     return {
