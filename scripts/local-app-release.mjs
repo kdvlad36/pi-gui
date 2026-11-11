@@ -11,9 +11,12 @@
  *   node scripts/local-app-release.mjs worktree расход-в-приложении
  *   node scripts/local-app-release.mjs merge
  *   node scripts/local-app-release.mjs release
+ *
+ * Версия идёт по semver: тег v1.0.2, следующая выкатка поднимает патч, манифест
+ * apps/desktop/package.json получает ту же версию, её же показывает раздел About.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, realpathSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -153,15 +156,28 @@ export function collectProblems(repo, options = {}) {
   return problems;
 }
 
-/** Локальный тег выкатки: local-ГГГГММДД-N, где N продолжает нумерацию этого дня. */
-export function nextTag(existingTags, date, suffix = "") {
-  const day = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-  const prefix = `local-${day}-`;
-  const used = existingTags
-    .map((tag) => (tag.startsWith(prefix) ? Number(tag.slice(prefix.length)) : 0))
-    .filter((value) => Number.isInteger(value) && value > 0);
-  const next = (used.length > 0 ? Math.max(...used) : 0) + 1;
-  return `${prefix}${next}${suffix}`;
+/**
+ * Следующая версия по правилам semver: от старшего тега vX.Y.Z поднимаем патч.
+ * Теги другого вида (например local-*) не учитываются, чтобы не сбивать нумерацию.
+ */
+export function nextVersion(existingTags) {
+  let best = [0, 0, 0];
+  for (const tag of existingTags) {
+    const match = /^v(\d+)\.(\d+)\.(\d+)$/.exec(tag.trim());
+    if (!match) continue;
+    const parts = match.slice(1).map(Number);
+    const newer =
+      parts[0] > best[0] ||
+      (parts[0] === best[0] && parts[1] > best[1]) ||
+      (parts[0] === best[0] && parts[1] === best[1] && parts[2] > best[2]);
+    if (newer) best = parts;
+  }
+  return `${best[0]}.${best[1]}.${best[2] + 1}`;
+}
+
+/** Версия в манифесте приложения и в теге: 1.0.2 и v1.0.2. */
+export function versionTag(version) {
+  return `v${version}`;
 }
 
 function report(state) {
@@ -278,6 +294,14 @@ function commandMerge(repo) {
   return 0;
 }
 
+/** Версия в манифесте приложения: по ней же electron-builder ставит версию пакета. */
+function writeAppVersion(repo, version) {
+  const path = join(repo, "apps", "desktop", "package.json");
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  manifest.version = version;
+  writeFileSync(path, `${JSON.stringify(manifest, null, 2)}\n`);
+}
+
 function tagExists(repo, tag) {
   return (gitOrNull(repo, ["tag", "--list", tag]) ?? "").trim().length > 0;
 }
@@ -289,38 +313,43 @@ function commandRelease(repo, args) {
     for (const problem of problems) console.error(`  - ${problem}`);
     return 1;
   }
-  const tags = (gitOrNull(repo, ["tag", "--list", "local-*"]) ?? "")
+  const tags = (gitOrNull(repo, ["tag", "--list"]) ?? "")
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
-  const tag = args.tag || nextTag(tags, new Date());
+  const version = args.version || nextVersion(tags);
+  const tag = versionTag(version);
   if (tagExists(repo, tag)) {
     console.error(`Тег ${tag} уже есть`);
     return 1;
   }
 
   const installScript = args.installScript;
+  console.log(`Версия ${version}: поднимаю манифест и коммичу, затем сборка из main`);
+  writeAppVersion(repo, version);
+  git(repo, ["add", "apps/desktop/package.json"], { stdio: ["ignore", "inherit", "inherit"] });
+  git(repo, ["commit", "-q", "-m", `Версия ${version}`], { stdio: ["ignore", "inherit", "inherit"] });
   console.log(`Собираю ${tag} из main (${(gitOrNull(repo, ["rev-parse", "--short", "HEAD"]) ?? "").trim()})`);
   if (!args.skipBuild) {
     execFileSync("bash", [installScript], {
       cwd: repo,
       stdio: "inherit",
-      env: { ...process.env, PI_GUI_REPO: repo, PI_APP_VERSION: tag },
+      env: { ...process.env, PI_GUI_REPO: repo, PI_APP_VERSION: version },
     });
   }
   const installed = args.app ?? "/Applications/pi-gui.app";
   const asar = join(installed, "Contents", "Resources", "app.asar");
   if (!args.skipBuild) {
     const found = Number(
-      (execFileSync("grep", ["-a", "-c", "-F", tag, asar], { encoding: "utf8" }) || "0").trim(),
+      (execFileSync("grep", ["-a", "-c", "-F", version, asar], { encoding: "utf8" }) || "0").trim(),
     );
     if (found === 0) {
-      console.error(`\nВ установленном пакете нет тега ${tag}: сборка прошла без PI_APP_VERSION`);
+      console.error(`\nВ установленном пакете нет версии ${version}: сборка прошла без PI_APP_VERSION`);
       return 1;
     }
   }
-  git(repo, ["tag", "-a", tag, "-m", `Локальная выкатка ${tag}`], { stdio: ["ignore", "inherit", "inherit"] });
-  console.log(`\nТег ${tag} поставлен, версия видна в настройках, раздел About.`);
+  git(repo, ["tag", "-a", tag, "-m", `Выкатка ${tag}`], { stdio: ["ignore", "inherit", "inherit"] });
+  console.log(`\nТег ${tag} поставлен, версия ${version} видна в настройках, раздел About.`);
   console.log(`Откат: bash ${join(homedir(), ".pi", "agent", "skills", "pi-gui-install", "scripts", "restore.sh")}`);
   return 0;
 }
@@ -331,8 +360,8 @@ function usage() {
   check                     состояние деревьев и веток, можно ли выкатывать
   worktree NAME             новое рабочее дерево ${WORKTREE_BASE}-NAME на feature/NAME
   merge                     слить ветки рабочих деревьев в main
-  release [--tag T]         проверка, сборка, установка и локальный тег
-  release --skip-build      только проверка и тег, без сборки`);
+  release [--version X.Y.Z] проверка, версия, сборка, установка и тег vX.Y.Z
+  release --skip-build      только версия и тег, без сборки`);
 }
 
 function main(argv) {
@@ -366,7 +395,7 @@ function main(argv) {
           ? flags.install
           : join(homedir(), ".pi", "agent", "skills", "pi-gui-install", "scripts", "install.sh");
       return commandRelease(repo, {
-        tag: typeof flags.tag === "string" ? flags.tag : undefined,
+        version: typeof flags.version === "string" ? flags.version : undefined,
         skipBuild: flags["skip-build"] === true,
         installScript,
       });

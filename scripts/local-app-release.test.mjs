@@ -7,8 +7,9 @@ import { join } from "node:path";
 import {
   collectProblems,
   mainTreeProblems,
-  nextTag,
+  nextVersion,
   parseWorktrees,
+  versionTag,
 } from "./local-app-release.mjs";
 
 function run(cwd, ...args) {
@@ -63,12 +64,12 @@ test("parseWorktrees читает путь, ветку и служебные с�
   ]);
 });
 
-test("nextTag продолжает нумерацию дня и не спорит с тегами других дней", () => {
-  const date = new Date(2026, 10, 11);
-  assert.equal(nextTag([], date), "local-20261111-1");
-  assert.equal(nextTag(["local-20261111-1", "local-20261111-4", "local-20261110-9"], date), "local-20261111-5");
-  assert.equal(nextTag(["v1.0.1", "local-20261112-1"], date), "local-20261111-1");
-  assert.equal(nextTag([], date, "-dirty"), "local-20261111-1-dirty");
+test("nextVersion поднимает патч от старшего тега и игнорирует чужие теги", () => {
+  assert.equal(nextVersion([]), "0.0.1");
+  assert.equal(nextVersion(["v1.0.1"]), "1.0.2");
+  assert.equal(nextVersion(["v1.0.1", "v1.0.9", "v1.2.0", "v1.10.0"]), "1.10.1");
+  assert.equal(nextVersion(["v1.0.1", "local-20261111-1", "nightly"]), "1.0.2");
+  assert.equal(versionTag("1.0.2"), "v1.0.2");
 });
 
 test("чистый main без других деревьев проходит проверку", () => {
