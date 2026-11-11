@@ -61,13 +61,13 @@ test("resets dock expansion on /reload and extension enable or disable transitio
     const dockToggle = window.getByTestId("extension-dock-toggle");
     const dockBody = window.getByTestId("extension-dock-body");
 
-    await expect(dockSummary).toHaveText("Session ready");
+    await expect(dockSummary).toHaveText("Session ready · Initial widget line");
     await dockToggle.click();
     await expect(dockBody).toContainText("Initial widget line");
 
     await composer.fill("/reload ");
     await composer.press("Enter");
-    await expect(dockSummary).toHaveText("Session ready");
+    await expect(dockSummary).toHaveText("Session ready · Initial widget line");
     await expect(dockBody).toHaveCount(0);
 
     await window.getByRole("button", { name: "Extensions", exact: true }).click();
@@ -85,7 +85,7 @@ test("resets dock expansion on /reload and extension enable or disable transitio
     await window.getByRole("switch", { name: "Enabled", exact: true }).click();
     await expect(window.getByRole("switch", { name: "Enabled", exact: true })).toBeChecked();
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
-    await expect(dockSummary).toHaveText("Session ready");
+    await expect(dockSummary).toHaveText("Session ready · Initial widget line");
     await expect(dockBody).toHaveCount(0);
   } finally {
     await harness.close();
@@ -111,7 +111,7 @@ test("refreshes runtime with new extension output and keeps the dock collapsed a
     const dockToggle = window.getByTestId("extension-dock-toggle");
     const dockBody = window.getByTestId("extension-dock-body");
 
-    await expect(dockSummary).toHaveText("Session ready");
+    await expect(dockSummary).toHaveText("Session ready · Initial widget line");
     await dockToggle.click();
     await expect(dockBody).toContainText("Initial widget line");
 
@@ -124,7 +124,7 @@ test("refreshes runtime with new extension output and keeps the dock collapsed a
     await window.getByRole("button", { name: "Refresh", exact: true }).click();
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
 
-    await expect(dockSummary).toHaveText("Refreshed session ready");
+    await expect(dockSummary).toHaveText("Refreshed session ready · Refreshed widget line");
     await expect(dockBody).toHaveCount(0);
     await dockToggle.click();
     await expect(dockBody).toContainText("Refreshed widget line");

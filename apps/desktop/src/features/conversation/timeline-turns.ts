@@ -1,6 +1,7 @@
 import type { TurnChangeSummary } from "../../../contracts/review";
 import type {
   DisplayTimelineItem,
+  TimelineToolCall,
   TimelineTranscriptItem,
   TimelineTurnMarker,
 } from "../../../contracts/timeline-types";
@@ -30,6 +31,16 @@ function isUserMessage(item: TimelineTranscriptItem | undefined): boolean {
  * While the last turn runs, a "Working" line is appended after everything else so it sits
  * where the newest output appears.
  */
+/** An assistant row with nothing to draw: a thinking-only step of a live run. */
+function isEmptyAssistantMessage(item: TimelineTranscriptItem | DisplayTimelineItem): boolean {
+  return (
+    item.kind === "message" &&
+    item.role === "assistant" &&
+    item.text.trim() === "" &&
+    !item.attachments?.length
+  );
+}
+
 export function buildDisplayTimelineItems(
   transcript: readonly TimelineTranscriptItem[],
   options: {
@@ -39,21 +50,23 @@ export function buildDisplayTimelineItems(
     readonly turnChanges?: readonly TurnChangeSummary[];
   } = {},
 ): readonly DisplayTimelineItem[] {
+  // Thinking-only assistant steps carry no text, so they neither draw a row nor break a run.
+  const visible = transcript.filter((item) => !isEmptyAssistantMessage(item));
   // Marker to emit immediately before the transcript item at that index.
   // Index `transcript.length` means "after the last item".
   const markersBefore = new Map<number, TimelineTurnMarker>();
 
-  for (let start = 0; start < transcript.length; start += 1) {
-    const prompt = transcript[start];
+  for (let start = 0; start < visible.length; start += 1) {
+    const prompt = visible[start];
     if (!prompt || !isUserMessage(prompt)) {
       continue;
     }
 
     let end = start + 1;
-    while (end < transcript.length && !isUserMessage(transcript[end])) {
+    while (end < visible.length && !isUserMessage(visible[end])) {
       end += 1;
     }
-    if (end === transcript.length && options.lastTurnRunning) {
+    if (end === visible.length && options.lastTurnRunning) {
       break;
     }
 
@@ -65,7 +78,7 @@ export function buildDisplayTimelineItems(
     let endMs: number | null = null;
     let finalReplyIndex: number | null = null;
     for (let index = start + 1; index < end; index += 1) {
-      const item = transcript[index];
+      const item = visible[index];
       if (!item) {
         continue;
       }
@@ -95,18 +108,18 @@ export function buildDisplayTimelineItems(
     });
   }
 
-  const cardsAfter = turnChangeCardPositions(transcript, options.turnChanges ?? []);
+  const cardsAfter = turnChangeCardPositions(visible, options.turnChanges ?? []);
   if (markersBefore.size === 0 && cardsAfter.size === 0 && !options.lastTurnRunning) {
-    return transcript;
+    return groupToolRuns(visible);
   }
 
   const result: DisplayTimelineItem[] = [];
-  for (let index = 0; index <= transcript.length; index += 1) {
+  for (let index = 0; index <= visible.length; index += 1) {
     const marker = markersBefore.get(index);
     if (marker) {
       result.push(marker);
     }
-    const item = transcript[index];
+    const item = visible[index];
     if (item) {
       result.push(item);
     }
@@ -117,7 +130,41 @@ export function buildDisplayTimelineItems(
   if (options.lastTurnRunning) {
     result.push({ kind: "working", id: "working-indicator", startedAt: options.runningSince });
   }
-  return result;
+  return groupToolRuns(result);
+}
+
+/**
+ * Folds runs of adjacent tool calls into one row. Prose, turn markers and extension cards end a
+ * run, so "said what it would do, then did it" keeps its order. A run of one call stays a plain
+ * tool row: a one-line group would only add a second level to open.
+ */
+export function groupToolRuns(
+  items: readonly DisplayTimelineItem[],
+): readonly DisplayTimelineItem[] {
+  const grouped: DisplayTimelineItem[] = [];
+  let run: TimelineToolCall[] = [];
+  const flush = () => {
+    const [first, ...rest] = run;
+    run = [];
+    if (!first) return;
+    if (rest.length === 0) grouped.push(first);
+    else
+      grouped.push({
+        kind: "tool-run",
+        id: `tool-run:${first.callId}`,
+        tools: [first, ...rest],
+      });
+  };
+  for (const item of items) {
+    if (isEmptyAssistantMessage(item)) continue;
+    if (item.kind === "tool") run.push(item);
+    else {
+      flush();
+      grouped.push(item);
+    }
+  }
+  flush();
+  return grouped;
 }
 
 function turnChangeCardPositions(

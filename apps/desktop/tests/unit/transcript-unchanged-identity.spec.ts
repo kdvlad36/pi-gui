@@ -92,3 +92,12 @@ test("events that change the transcript still replace the array", () => {
   expect(after).toHaveLength(2);
   expect(before).toHaveLength(1);
 });
+
+test("an empty assistant delta does not create an invisible message row", () => {
+  const transcript = new Map<string, readonly TranscriptMessage[]>();
+  const active = new Map<string, string>();
+  appendAssistantDelta(transcript, active, sessionRef, "");
+  appendAssistantDelta(transcript, active, sessionRef, "  \n ");
+  expect(transcript.get(key) ?? []).toEqual([]);
+  expect(active.has(key)).toBe(false);
+});

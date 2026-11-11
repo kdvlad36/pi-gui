@@ -138,6 +138,7 @@ import {
   extensionNoticeTimerId,
   removeExtensionNotice,
 } from "../extensions/extension-notices";
+import { resolvePiAgentDir } from "../platform/pi-agent-dir";
 import { appWorktreeRootMatcher } from "../platform/worktrees/app-worktree-roots";
 import { GitWorktreeManager } from "../platform/worktrees/worktree-manager";
 import { createWorkspaceOwner, type WorkspaceOwner } from "../workspace/app-store-workspace";
@@ -304,6 +305,9 @@ export class DesktopAppStore {
     const driverOptions: PiSdkDriverConfig = {
       catalogStorage: this.catalogStore,
       ...(options.driverOptions ?? {}),
+      // No saved `enabledModels` means no model is enabled: the user picks models in
+      // Settings > Models and nothing enables them on the user's behalf.
+      enabledModelsWhenUnset: "off",
       isBuiltinExtensionEnabled: (name) => !this.disabledBuiltinExtensions.has(name),
       extensionFlagValuesForSession: (sessionRef) =>
         this.sessionState.extensionFlagsBySession.get(sessionKey(sessionRef)),
@@ -1629,7 +1633,6 @@ export class DesktopAppStore {
     return this.withErrorHandling(async () => {
       const snapshot = await this.driver.runtimeSupervisor.login(ws, providerId, callbacks);
       this.runtimeByWorkspace.set(workspaceId, snapshot);
-      await this.autoEnableModelsForConnectedProvider(targetWorkspaceId, providerId, snapshot);
       await this.refreshSessionCommandsForWorkspace(workspaceId);
       return this.refreshState({ clearLastError: true });
     });
@@ -1725,56 +1728,6 @@ export class DesktopAppStore {
       this.runtimeByWorkspace.set(ws.workspaceId, snapshot);
       return this.refreshState({ clearLastError: true });
     });
-  }
-
-  private async autoEnableModelsForConnectedProvider(
-    workspaceId: string,
-    providerId: string,
-    snapshot: RuntimeSnapshot,
-  ): Promise<void> {
-    const providerModelPatterns = [
-      ...new Set(
-        snapshot.models
-          .filter((model) => model.available && model.providerId === providerId)
-          .map((model) => `${model.providerId}/${model.modelId}`),
-      ),
-    ];
-    if (providerModelPatterns.length === 0) {
-      return;
-    }
-
-    const currentPatterns = snapshot.settings.enabledModelPatterns;
-    if (currentPatterns.length === 0) {
-      return;
-    }
-
-    const nextPatterns = mergeEnabledModelPatterns(currentPatterns, providerModelPatterns);
-    if (nextPatterns.length === currentPatterns.length) {
-      return;
-    }
-
-    if (this.state.modelSettingsScopeMode !== "per-repo") {
-      const ownerWorkspace = this.workspaceRefFromState(workspaceId);
-      if (!ownerWorkspace) {
-        return;
-      }
-      const updatedSnapshot = await this.driver.runtimeSupervisor.setScopedModelPatterns(
-        ownerWorkspace,
-        nextPatterns,
-      );
-      this.runtimeByWorkspace.set(workspaceId, updatedSnapshot);
-      return;
-    }
-
-    const ownerWorkspace = this.workspaceRefFromState(workspaceId);
-    if (!ownerWorkspace) {
-      return;
-    }
-    const updatedSnapshot = await this.driver.runtimeSupervisor.setProjectScopedModelPatterns(
-      ownerWorkspace,
-      nextPatterns,
-    );
-    this.runtimeByWorkspace.set(workspaceId, updatedSnapshot);
   }
 
   async setSkillEnabled(
@@ -4973,13 +4926,7 @@ function withHomeAsTilde(path: string): string {
 }
 
 function resolveGlobalSettingsPath(): string {
-  const override = process.env.PI_CODING_AGENT_DIR;
-  const agentDir = override
-    ? override.startsWith("~")
-      ? join(homedir(), override.slice(1))
-      : override
-    : join(homedir(), ".pi", "agent");
-  return join(agentDir, "settings.json");
+  return join(resolvePiAgentDir(), "settings.json");
 }
 
 async function readProjectModelSettingsFile(
@@ -5044,22 +4991,6 @@ function modelSettingsEqual(left: ModelSettingsSnapshot, right: ModelSettingsSna
 
 function samePatterns(left: readonly string[], right: readonly string[]): boolean {
   return left.length === right.length && left.every((pattern, index) => pattern === right[index]);
-}
-
-function mergeEnabledModelPatterns(
-  existingPatterns: readonly string[],
-  providerPatterns: readonly string[],
-): readonly string[] {
-  const merged = [...existingPatterns];
-  const seen = new Set(existingPatterns);
-  for (const pattern of providerPatterns) {
-    if (seen.has(pattern)) {
-      continue;
-    }
-    seen.add(pattern);
-    merged.push(pattern);
-  }
-  return merged;
 }
 
 function reconcilePinnedSessionOrder(

@@ -223,7 +223,7 @@ test("a pinned card stays above the composer through updates, hiding, compaction
     await expect(dock).toHaveCount(0);
     await send(window, "/widget Testing");
     await expect(dock).toBeVisible();
-    await expect(window.getByTestId("extension-dock-summary")).toHaveText("Tick 2");
+    await expect(window.getByTestId("extension-dock-summary")).toHaveText("Tick 2 · Testing");
 
     // Clearing the dock spends the hide too: the same text shown again later is visible.
     await window.getByTestId("extension-dock-dismiss").click();

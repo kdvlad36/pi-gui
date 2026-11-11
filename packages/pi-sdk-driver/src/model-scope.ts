@@ -11,13 +11,18 @@ const keyOf = (providerId: string, modelId: string) => `${providerId}/${modelId}
 /**
  * Resolves `enabledModels` with pi's own resolver, so globs, bare ids, fuzzy names and
  * `:thinking` suffixes enable the same models here as in pi.
+ *
+ * `scopeWhenEmpty` decides the unset case: pi reads an unset list as every available model, while
+ * the desktop app can read it as none, so a fresh install lists nothing until the user enables
+ * models.
  */
 export async function resolveModelScopes(
   patterns: readonly string[],
   modelRuntime: ModelRuntime,
+  scopeWhenEmpty: RuntimeModelScope = "all",
 ): Promise<(model: ModelKey) => RuntimeModelScope> {
   if (patterns.length === 0) {
-    return () => "all";
+    return () => scopeWhenEmpty;
   }
   // pi's resolver reads availability itself; run it in sequence so both passes see the same set.
   const enabled = await resolvedKeys(patterns, modelRuntime);

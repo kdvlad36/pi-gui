@@ -11,6 +11,7 @@ import type {
 const ANSI_ESCAPE_PATTERN = /\u001B\[[0-?]*[ -/]*[@-~]/g;
 const DOCK_SEGMENT_SEPARATOR = "--------------------";
 const GENERIC_ACTIVE_LABEL = "Extension UI active";
+const DOCK_SUMMARY_SEPARATOR = " · ";
 
 interface ExtensionDockBlock {
   readonly key: string;
@@ -318,25 +319,35 @@ function buildWidgetBlocks(
     .filter((widget) => widget.lines.some((line) => line.trim().length > 0));
 }
 
+/**
+ * The collapsed bar shows every extension text, not only the first one: extensions load in
+ * filesystem order, so picking one hid the others depending on the day.
+ */
 function resolveDockSummaryText(
   statuses: readonly { readonly key: string; readonly text: string }[],
   primaryBlocks: readonly ExtensionDockBlock[],
   secondaryBlocks: readonly ExtensionDockBlock[],
 ): string {
-  for (const status of statuses) {
-    if (status.text.trim().length > 0) {
-      return status.text;
+  const parts: string[] = [];
+  const add = (value: string) => {
+    const text = value.replace(/\s*\n\s*/g, " ").trim();
+    if (text.length > 0 && !parts.includes(text)) {
+      parts.push(text);
     }
+  };
+
+  for (const status of statuses) {
+    add(status.text);
   }
 
   for (const block of [...primaryBlocks, ...secondaryBlocks]) {
     const summaryLine = block.lines.find((line) => line.trim().length > 0);
-    if (summaryLine) {
-      return summaryLine;
+    if (summaryLine !== undefined) {
+      add(summaryLine);
     }
   }
 
-  return GENERIC_ACTIVE_LABEL;
+  return parts.length > 0 ? parts.join(DOCK_SUMMARY_SEPARATOR) : GENERIC_ACTIVE_LABEL;
 }
 
 function buildDockBodyText(

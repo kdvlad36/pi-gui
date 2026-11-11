@@ -32,6 +32,7 @@ import type {
   ModelOnboardingSettingsSection,
 } from "../settings/model-onboarding";
 import { ContextMeter } from "./context-meter";
+import { SpendStrip } from "./spend-strip";
 import { ModelSelector } from "./model-selector";
 import { ExtensionNotices } from "../extensions/extension-notices";
 import { ExtensionFlagsBadge } from "../threads/extension-flags-selector";
@@ -256,6 +257,7 @@ export function ComposerPanel({
             </div>
           }
         />
+        <SpendStrip usage={usage} provider={provider} runtime={runtime} />
       </div>
       {preparingTaskDraft ? (
         <div className="composer__footer-row">

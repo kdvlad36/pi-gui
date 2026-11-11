@@ -1,0 +1,180 @@
+/* =============================================================================
+ * Spend strip — today's money and subscription limits under the composer.
+ * The panel reads like the context meter card: quiet surfaces, tabular numbers.
+ * ========================================================================== */
+
+.spend-strip {
+  position: relative;
+  width: 100%;
+}
+
+.spend-strip__button {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: var(--surface-muted);
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+  transition:
+    border-color var(--motion-base) var(--ease-out),
+    background-color var(--motion-base) var(--ease-out);
+}
+
+.spend-strip__button:hover {
+  border-color: var(--line);
+}
+
+.spend-strip__button:focus-visible {
+  outline: none;
+  border-color: var(--focus-ring-border);
+  box-shadow: 0 0 0 2px var(--focus-ring-color);
+}
+
+.spend-strip__today {
+  min-width: 0;
+}
+
+.spend-strip__label {
+  color: var(--muted-soft);
+}
+
+.spend-strip__limits {
+  min-width: 0;
+  color: var(--muted-soft);
+}
+
+.spend-strip__chevron {
+  margin-left: auto;
+  color: var(--muted-subtle);
+  font-size: 10px;
+}
+
+.spend-strip__card {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  z-index: 20;
+  display: grid;
+  gap: 8px;
+  width: min(380px, calc(100vw - 48px));
+  padding: 12px 14px;
+  border-radius: var(--radius-2xl);
+  background: var(--surface);
+  box-shadow: var(--elevation-popover);
+  color: var(--text-strong);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.spend-strip__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spend-strip__heading {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+}
+
+.spend-strip__refresh {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--muted-strong);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--font-medium);
+}
+
+.spend-strip__refresh:hover:not(:disabled) {
+  color: var(--text-strong);
+}
+
+.spend-strip__refresh:disabled {
+  color: var(--muted-subtle);
+}
+
+.spend-strip__refresh:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}
+
+.spend-strip__provider {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.spend-strip__provider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.spend-strip__provider-name {
+  font-weight: var(--font-medium);
+}
+
+.spend-strip__requests {
+  color: var(--muted);
+}
+
+.spend-strip__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--muted-strong);
+}
+
+.spend-strip__value {
+  color: var(--text-strong);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.spend-strip__section {
+  display: grid;
+  gap: 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.spend-strip__subheading {
+  margin: 0 0 2px;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: var(--font-normal);
+}
+
+.spend-strip__note {
+  margin: 0;
+  color: var(--muted);
+}
+
+.spend-strip__warning {
+  margin: 0;
+  color: var(--warning-ink);
+}
+
+@media (max-width: 720px) {
+  .spend-strip__limits {
+    width: 100%;
+  }
+}

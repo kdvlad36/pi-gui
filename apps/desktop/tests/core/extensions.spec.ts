@@ -488,7 +488,9 @@ test("manages extensions and prefers runtime commands over colliding host action
 
     await expect(window.locator(".chat-header__title")).toHaveText("Extension Surface");
     await expect(window.getByTestId("extension-dock")).toBeVisible();
-    await expect(window.getByTestId("extension-dock-summary")).toHaveText("Demo ready");
+    await expect(window.getByTestId("extension-dock-summary")).toHaveText(
+      "Demo ready · Demo widget line · Below widget line",
+    );
     await expect(window.getByTestId("extension-status-strip")).toHaveCount(0);
     await expect(window.getByTestId("extension-widget-rail")).toHaveCount(0);
     const dockBody = await expandDock(window);
@@ -526,7 +528,9 @@ test("manages extensions and prefers runtime commands over colliding host action
     await expect(enabledSwitch).toBeChecked();
     await window.getByRole("button", { name: "Back to app", exact: true }).click();
     await expect(window.locator(".chat-header__title")).toHaveText("Extension Surface");
-    await expect(window.getByTestId("extension-dock-summary")).toHaveText("Demo ready");
+    await expect(window.getByTestId("extension-dock-summary")).toHaveText(
+      "Demo ready · Demo widget line · Below widget line",
+    );
     await expect(window.getByTestId("extension-dock-body")).toHaveCount(0);
     await expect
       .poll(async () => {

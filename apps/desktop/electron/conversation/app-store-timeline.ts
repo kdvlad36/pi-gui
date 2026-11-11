@@ -126,9 +126,13 @@ export function appendAssistantDelta(
   sessionRef: SessionRef,
   text: string,
 ): void {
+  if (text === "") return;
   const key = sessionKey(sessionRef);
-  const transcript = [...(transcriptCache.get(key) ?? [])];
   const activeId = activeAssistantMessageBySession.get(key);
+  // Avoid an invisible row before a response, but preserve whitespace within one:
+  // streamed newlines and spaces are part of Markdown syntax.
+  if (!activeId && text.trim() === "") return;
+  const transcript = [...(transcriptCache.get(key) ?? [])];
 
   if (activeId) {
     const index = transcript.findIndex((message) => message.id === activeId);

@@ -7,6 +7,7 @@ import type {
   DisplayTimelineItem,
   TimelineActivity,
   TimelineToolCall,
+  TimelineToolRun,
   TimelineSummary,
   TimelineTurnMarker,
   TimelineWorkingIndicator,
@@ -14,6 +15,7 @@ import type {
 import type { ScheduledTaskOrigin } from "../../../contracts/scheduled-tasks";
 import { parseCrossProjectMessage } from "../../../contracts/thread-message";
 import { extensionToolRowLabel } from "../../../contracts/tool-labels";
+import { russianToolLabel, toolFamily, type ToolFamily } from "../../../contracts/tool-labels-ru";
 import { useExtensionToolLabel } from "../extensions/extension-tool-labels";
 import { useRunningLabel } from "./hooks/use-running-label";
 import {
@@ -28,6 +30,7 @@ import { ImageAttachmentThumb } from "./image-attachment-thumb";
 import { MessageMarkdown } from "./message-markdown";
 import { BgJobMessage } from "./bg-job-message";
 import { stringifyToolValue, toolOutputImages } from "./tool-output-images";
+import { isEmptySearch } from "./tool-search-outcome";
 import { TurnChangesCard, type OpenTurnChange } from "./turn-changes-card";
 import type { WorkspaceFileLine } from "./workspace-file-line";
 import { InlineDiff, extractDiffFromOutput } from "../../ui/diff-inline";
@@ -37,6 +40,7 @@ import {
   DiffIcon,
   FileIcon,
   ForkIcon,
+  SearchIcon,
   SparkIcon,
   TerminalIcon,
 } from "../../ui/icons";
@@ -46,6 +50,8 @@ export function TimelineItem({
   item,
   expandedToolCallIds,
   onToggleToolCall,
+  expandedRunIds,
+  onToggleRun,
   onViewFileInDiff,
   sourceMessageIndex,
   onForkFromMessage,
@@ -60,6 +66,8 @@ export function TimelineItem({
   readonly item: DisplayTimelineItem;
   readonly expandedToolCallIds?: ReadonlySet<string>;
   readonly onToggleToolCall?: (callId: string) => void;
+  readonly expandedRunIds?: ReadonlySet<string>;
+  readonly onToggleRun?: (runId: string) => void;
   readonly onViewFileInDiff?: (path: string) => void;
   readonly sourceMessageIndex?: number;
   readonly onForkFromMessage?: (messageIndex: number, preview?: string) => void;
@@ -99,6 +107,17 @@ export function TimelineItem({
           item={item}
           expanded={expandedToolCallIds?.has(item.callId) ?? false}
           onToggle={onToggleToolCall}
+          onViewFileInDiff={onViewFileInDiff}
+        />
+      );
+    case "tool-run":
+      return (
+        <TimelineToolRunItem
+          item={item}
+          expanded={expandedRunIds?.has(item.id) ?? false}
+          onToggle={onToggleRun}
+          expandedToolCallIds={expandedToolCallIds}
+          onToggleToolCall={onToggleToolCall}
           onViewFileInDiff={onViewFileInDiff}
         />
       );
@@ -293,11 +312,12 @@ function TimelineToolCallItem({
   const diffStats = diffText ? countDiffStats(diffText) : undefined;
   const compactLabel =
     extensionLabel === undefined
-      ? buildCompactLabel(item, diffStats)
+      ? russianToolLabel(item.toolName, item.input, item.status)
       : extensionToolRowLabel(extensionLabel, item.input);
   const filePath = writeTool ? extractFilename(item.input) || undefined : undefined;
   const diffLanguage = diffText && filePath ? extensionToLanguage(filePath) : undefined;
-  const inlineDetail = item.status === "error" ? item.detail : undefined;
+  const emptySearch = isEmptySearch(item);
+  const inlineDetail = item.status === "error" && !emptySearch ? item.detail : undefined;
   const images = toolOutputImages(item.output);
 
   const handleCopy = () => {
@@ -308,7 +328,7 @@ function TimelineToolCallItem({
   };
 
   return (
-    <article className={`timeline-tool timeline-tool--${item.status}`}>
+    <article className={`timeline-tool timeline-tool--${emptySearch ? "success" : item.status}`}>
       <div className="timeline-tool__header-row">
         <span className="timeline-tool__glyph" aria-hidden="true">
           {extensionLabel === undefined || diffText ? toolGlyph(item.toolName) : <SparkIcon />}
@@ -337,7 +357,7 @@ function TimelineToolCallItem({
           ) : null}
           <span className="timeline-tool__meta-inline">
             <span className="timeline-tool__status-pip" aria-hidden="true" />
-            {`${item.toolName} \u00b7 ${statusLabel(item.status)}`}
+            {`${item.toolName} \u00b7 ${emptySearch ? "совпадений нет" : statusLabel(item.status)}`}
           </span>
         </button>
         {filePath && onViewFileInDiff ? (
@@ -415,6 +435,136 @@ function TimelineToolCallItem({
   );
 }
 
+const FAMILY_WORDS: Record<ToolFamily, readonly [string, string, string]> = {
+  bash: ["команда", "команды", "команд"],
+  read: ["файл", "файла", "файлов"],
+  edit: ["правка", "правки", "правок"],
+  search: ["поиск", "поиска", "поисков"],
+  other: ["вызов", "вызова", "вызовов"],
+};
+
+function pluralRu(count: number, forms: readonly [string, string, string]): string {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return forms[1];
+  return forms[2];
+}
+
+function familyGlyph(family: ToolFamily) {
+  if (family === "other") return <SparkIcon />;
+  if (family === "edit") return <DiffIcon />;
+  if (family === "bash") return <TerminalIcon />;
+  if (family === "search") return <SearchIcon />;
+  return <FileIcon />;
+}
+
+/**
+ * One row for a run of adjacent calls, collapsed even while the run is live: the live call is
+ * named in the row's tail instead of pushing the transcript down by another line. A failed call
+ * is drawn below the run, never inside it, so collapsing can hide work but not a failure.
+ */
+function TimelineToolRunItem({
+  item,
+  expanded,
+  onToggle,
+  expandedToolCallIds,
+  onToggleToolCall,
+  onViewFileInDiff,
+}: {
+  readonly item: TimelineToolRun;
+  readonly expanded: boolean;
+  readonly onToggle?: (runId: string) => void;
+  readonly expandedToolCallIds?: ReadonlySet<string>;
+  readonly onToggleToolCall?: (callId: string) => void;
+  readonly onViewFileInDiff?: (path: string) => void;
+}) {
+  const running = item.tools.find((tool) => tool.status === "running");
+  const failures = item.tools.filter((tool) => tool.status === "error" && !isEmptySearch(tool));
+  const listed = item.tools.filter((tool) => tool.status !== "error" || isEmptySearch(tool));
+  const counts = new Map<ToolFamily, number>();
+  for (const tool of item.tools) {
+    const family = toolFamily(tool.toolName);
+    counts.set(family, (counts.get(family) ?? 0) + 1);
+  }
+  const families = [...counts.keys()];
+  const dominant = families.reduce<ToolFamily | undefined>(
+    (best, family) =>
+      best === undefined || (counts.get(family) ?? 0) > (counts.get(best) ?? 0) ? family : best,
+    undefined,
+  );
+  const figures = families.map((family) => {
+    const count = counts.get(family) ?? 0;
+    return `${count} ${pluralRu(count, FAMILY_WORDS[family])}`;
+  });
+  const total = item.tools.length;
+  const headline = `${running ? "Выполняется" : "Выполнено"} ${total} ${pluralRu(total, ["действие", "действия", "действий"])}`;
+  return (
+    <article className="timeline-tool-run" data-testid="timeline-tool-run">
+      <div className="timeline-tool-run__row">
+        <span className="timeline-tool-run__glyph" aria-hidden="true">
+          {dominant ? familyGlyph(dominant) : <SparkIcon />}
+        </span>
+        <button
+          className="timeline-tool-run__toggle"
+          type="button"
+          aria-expanded={expanded}
+          data-testid="timeline-tool-run-toggle"
+          onClick={() => onToggle?.(item.id)}
+        >
+          <span
+            className={`timeline-tool__chevron ${expanded ? "timeline-tool__chevron--expanded" : ""}`}
+          >
+            <ChevronRightIcon />
+          </span>
+          <span className="timeline-tool-run__label">{headline}</span>
+          <span className="timeline-tool-run__figures">
+            {families.length > 1 ? (
+              <span className="timeline-tool-run__icons" aria-hidden="true">
+                {families.map((family) => (
+                  <span key={family}>{familyGlyph(family)}</span>
+                ))}
+              </span>
+            ) : null}
+            <span className="timeline-tool-run__counts">{figures.join(" \u00b7 ")}</span>
+          </span>
+          {running ? (
+            <span className="timeline-tool-run__live">
+              {`Сейчас: ${russianToolLabel(running.toolName, running.input, running.status)}`}
+            </span>
+          ) : null}
+        </button>
+      </div>
+      {expanded && listed.length > 0 ? (
+        <div className="timeline-tool-run__body" data-testid="timeline-tool-run-body">
+          {listed.map((tool) => (
+            <TimelineToolCallItem
+              key={tool.id}
+              item={tool}
+              expanded={expandedToolCallIds?.has(tool.callId) ?? false}
+              onToggle={onToggleToolCall}
+              onViewFileInDiff={onViewFileInDiff}
+            />
+          ))}
+        </div>
+      ) : null}
+      {failures.length > 0 ? (
+        <div className="timeline-tool-run__failures" data-testid="timeline-tool-run-failures">
+          {failures.map((tool) => (
+            <TimelineToolCallItem
+              key={tool.id}
+              item={tool}
+              expanded={expandedToolCallIds?.has(tool.callId) ?? false}
+              onToggle={onToggleToolCall}
+              onViewFileInDiff={onViewFileInDiff}
+            />
+          ))}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
 function isWriteTool(toolName: string): boolean {
   return /write|edit|patch|apply/i.test(toolName);
 }
@@ -430,19 +580,6 @@ function toolGlyph(toolName: string) {
     return <FileIcon />;
   }
   return <SparkIcon />;
-}
-
-function buildCompactLabel(
-  item: TimelineToolCall,
-  diffStats: { added: number; removed: number } | undefined,
-): string {
-  if (isWriteTool(item.toolName)) {
-    const filename = extractFilename(item.input);
-    if (filename) {
-      return `Edited ${shortenPath(filename)}`;
-    }
-  }
-  return item.label;
 }
 
 function extractFilename(input: unknown): string {

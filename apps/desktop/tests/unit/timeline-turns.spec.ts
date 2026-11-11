@@ -38,8 +38,7 @@ test("the marker sits directly above the turn's final assistant reply", () => {
   expect(ids(transcript)).toEqual([
     "u1",
     "a1",
-    "t1",
-    "t2",
+    "tool-run:t1",
     "turn-marker:u1",
     "a2",
     "u2",
@@ -153,6 +152,6 @@ test("the working line follows the running turn's newest row and carries the run
   const grown = buildDisplayTimelineItems([...transcript, tool("t2", 8)], {
     lastTurnRunning: true,
   });
-  expect(grown.map((item) => item.id)).toEqual(["u1", "a1", "t1", "t2", "working-indicator"]);
+  expect(grown.map((item) => item.id)).toEqual(["u1", "a1", "tool-run:t1", "working-indicator"]);
   expect(ids(transcript)).not.toContain("working-indicator");
 });
