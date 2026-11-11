@@ -53,6 +53,9 @@ export interface SessionTranscriptCustomMessage {
   readonly id: string;
   readonly createdAt: string;
   readonly customType: string;
+  /** Host-only status metadata from pi-subagents completion notifications. */
+  readonly subagentRuns?: readonly import("./subagent-notification.js").SubagentRunNotice[];
+  readonly hostOnly?: boolean;
   /** Markdown from the message's text parts. */
   readonly text: string;
 }
