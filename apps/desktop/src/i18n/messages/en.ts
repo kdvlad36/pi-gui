@@ -177,6 +177,10 @@ export const en = {
   "settings.general.skillCommands.description":
     "Offer each skill as a slash command in the composer.",
   "settings.general.skillCommands.label": "Enable skill slash commands",
+  "settings.general.groupAbout": "About",
+  "settings.general.version.title": "Version",
+  "settings.general.version.description":
+    "Local build tag from the last rollout. A dev build shows dev build.",
   "settings.general.groupTerminal": "Terminal",
   "settings.general.shell.title": "Shell",
   "settings.general.shell.description":

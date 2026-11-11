@@ -40,6 +40,10 @@ export default defineConfig(({ command }) => {
     renderer: {
       root: projectRoot,
       base: "./",
+      // Тег локальной выкатки из scripts/local-app-release.mjs, пусто в dev-сборке.
+      define: {
+        __PI_APP_VERSION__: JSON.stringify(process.env.PI_APP_VERSION ?? ""),
+      },
       plugins: [react(), tsconfigPaths({ projects: [pathsProject] })],
       server: {
         port: devPort,

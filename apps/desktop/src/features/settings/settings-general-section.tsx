@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { RuntimeSnapshot } from "@pi-gui/session-driver/runtime-types";
 import type { ModelSettingsScopeMode } from "../../../contracts/desktop-state";
 import { useTranslation } from "../../i18n";
+import { appVersionLabel } from "../../app/app-version";
 import { SettingsSegmented, SettingsSwitch } from "./settings-controls";
 import { SettingsGroup, SettingsRow } from "./settings-utils";
 
@@ -84,6 +85,17 @@ export function SettingsGeneralSection({
               }
             }}
           />
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title={t("settings.general.groupAbout")}>
+        <SettingsRow
+          title={t("settings.general.version.title")}
+          description={t("settings.general.version.description")}
+        >
+          <span className="settings-row__value" data-testid="app-version">
+            {appVersionLabel()}
+          </span>
         </SettingsRow>
       </SettingsGroup>
     </>
