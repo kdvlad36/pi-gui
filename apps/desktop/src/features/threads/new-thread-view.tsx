@@ -23,6 +23,7 @@ import {
   type ComposerSlashOptionEmptyState,
 } from "../conversation/composer-commands";
 import { ComposerSurface } from "../conversation/composer-surface";
+import { SpendStrip } from "../conversation/spend-strip";
 import { ModelOnboardingNoticeBanner } from "../settings/model-onboarding-notice";
 import type {
   ModelOnboardingState,
@@ -245,6 +246,7 @@ export function NewThreadView({
                 />
               }
             />
+            <SpendStrip provider={provider} runtime={runtime} />
           </div>
         </div>
       </div>

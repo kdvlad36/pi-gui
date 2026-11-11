@@ -39,6 +39,7 @@ These user-facing surfaces have no feature file and no `prove.sh` checkpoint yet
 - New side panel tab on Cmd/Ctrl+T, which opens the "Open a tool" picker (inside the terminal it opens a new shell instead), `apps/desktop/src/features/workbench/workbench.tsx`; core `workbench-tabs.spec.ts`.
 - Messages an agent in another project sends to a thread ("From project <name>" on the user bubble and the queued row), `apps/desktop/contracts/thread-message.ts`; core `cross-project-thread-messages.spec.ts` checks the bubble only.
 - Context ring beside the model picker, `apps/desktop/src/features/conversation/context-meter.tsx`.
+- Spend strip under the composer (today's provider bill, pi estimates and subscription limits), `apps/desktop/src/features/conversation/spend-strip.tsx`; core `spend-strip.spec.ts` seeds a session file and checks the visible total after restart.
 - Changes card after a turn that edited files, `apps/desktop/src/features/conversation/turn-changes-card.tsx`; core `turn-changes-card.spec.ts`.
 - Extension notify toast above the composer and extension messages in the transcript, `apps/desktop/src/features/extensions/extension-notices.tsx` and `apps/desktop/src/features/conversation/timeline-item.tsx`; core `extension-notices.spec.ts`, `extension-custom-messages.spec.ts`.
 - Theme presets built from seed colours, Settings > Appearance; core `settings-appearance.spec.ts`.

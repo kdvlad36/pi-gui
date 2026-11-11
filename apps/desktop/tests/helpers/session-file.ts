@@ -10,6 +10,14 @@ export interface SeededSessionFileMessage {
   readonly role: "user" | "assistant";
   readonly text: string;
   readonly timestampMs?: number;
+  /** Assistant usage cost, so spend and usage surfaces can be seeded through a real session file. */
+  readonly usageCost?: {
+    readonly total: number;
+    readonly provider: string;
+    readonly model?: string;
+    /** True when the provider reported the amount, false for pi's own estimate. */
+    readonly totalFromProvider?: boolean;
+  };
 }
 
 /** Resolve a session's pi JSONL file path from the app's catalog. */
@@ -68,15 +76,22 @@ export async function appendMessagesToSessionFile(
               role: "assistant",
               content: [{ type: "text", text: message.text }],
               api: "openai-responses",
-              provider: "openai",
-              model: "gpt-5",
+              provider: message.usageCost?.provider ?? "openai",
+              model: message.usageCost?.model ?? "gpt-5",
               usage: {
                 input: 0,
                 output: 0,
                 cacheRead: 0,
                 cacheWrite: 0,
                 totalTokens: 0,
-                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+                cost: {
+                  input: 0,
+                  output: 0,
+                  cacheRead: 0,
+                  cacheWrite: 0,
+                  total: message.usageCost?.total ?? 0,
+                  ...(message.usageCost?.totalFromProvider ? { totalFromProvider: true } : {}),
+                },
               },
               stopReason: "stop",
               timestamp,

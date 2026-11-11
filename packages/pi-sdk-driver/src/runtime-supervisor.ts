@@ -818,6 +818,8 @@ export class RuntimeSupervisor implements RuntimeResourceDriver {
           authType: storedType ?? "none",
           authSource: inferProviderAuthSource(storedType, providerAuthStatus, apiKeySetupSupported),
           oauthSupported: Boolean(oauthProvider),
+          // Whether this provider's current credential bills flat rather than by token.
+          isSubscription: runtime.isUsingSubscription(providerId),
           apiKeySetupSupported,
         };
       });

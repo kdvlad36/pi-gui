@@ -35,6 +35,8 @@ import type { SettingsSection } from "../../settings/settings-view";
 import { useMentionMenu } from "../../conversation/hooks/use-mention-menu";
 import { useSlashMenu } from "../../conversation/hooks/use-slash-menu";
 import { resolveRepoWorkspaceId } from "../../../../contracts/workspace-roots";
+import { useCodexLimits } from "../../conversation/use-codex-limits";
+import { shouldUseCodexPreferredModel } from "../auto-model";
 
 interface UseNewThreadControllerParams {
   readonly api: PiDesktopApi | undefined;
@@ -81,15 +83,27 @@ export function useNewThreadController(params: UseNewThreadControllerParams) {
   const workspace =
     rootWorkspaceOptions.find((entry) => entry.id === rootWorkspaceId) ?? rootWorkspaceOptions[0];
   const runtime = snapshot ? getEffectiveModelRuntime(snapshot, workspace) : undefined;
-  const defaultEnabled = buildModelOptions(runtime).some(
+  const modelOptions = buildModelOptions(runtime);
+  const defaultEnabled = modelOptions.some(
     (m) =>
       m.providerId === runtime?.settings.defaultProvider &&
       m.modelId === runtime?.settings.defaultModelId,
   );
+  const { result: codexLimits } = useCodexLimits(snapshot?.activeView === "new-thread");
+  const preferredAvailable = modelOptions.some(
+    (m) => m.providerId === "openai" && m.modelId === "gpt-6.1-terra",
+  );
+  const usePreferred = shouldUseCodexPreferredModel(codexLimits, preferredAvailable);
   const resolvedProvider =
-    provider ?? (defaultEnabled ? runtime?.settings.defaultProvider : undefined);
+    provider ??
+    (usePreferred ? "openai" : defaultEnabled ? runtime?.settings.defaultProvider : undefined);
   const resolvedModelId =
-    modelId ?? (defaultEnabled ? runtime?.settings.defaultModelId : undefined);
+    modelId ??
+    (usePreferred
+      ? "gpt-6.1-terra"
+      : defaultEnabled
+        ? runtime?.settings.defaultModelId
+        : undefined);
   const resolvedThinkingLevel = thinkingLevel ?? runtime?.settings.defaultThinkingLevel;
   const workspaceFlagDefaults = workspace
     ? snapshot?.extensionFlagsByWorkspace[workspace.id]

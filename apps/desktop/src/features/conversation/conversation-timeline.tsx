@@ -21,6 +21,7 @@ import type { TranscriptAnnotations } from "./annotations/use-transcript-annotat
 import { ThreadSearchBar } from "./thread-search";
 import type { RunExtensionAction } from "./extension-card";
 import { TimelineItem } from "./timeline-item";
+import { groupToolRuns } from "./timeline-turns";
 import { sameRowContent, type TimelineRow } from "./timeline-layout";
 import type { OpenTurnChange } from "./turn-changes-card";
 import type { WorkspaceFileLine } from "./workspace-file-line";
@@ -57,6 +58,14 @@ interface ConversationTimelineProps {
   readonly platform: NodeJS.Platform;
 }
 const NO_MARKERS: readonly AnnotationMarker[] = [];
+const NO_RUN_IDS: ReadonlySet<string> = new Set();
+
+/** Ids of the runs a transcript draws, read from the same grouping the rows are built with. */
+function runIdsOf(transcript: readonly TimelineTranscriptItem[]): ReadonlySet<string> {
+  return new Set(
+    groupToolRuns(transcript).flatMap((item) => (item.kind === "tool-run" ? [item.id] : [])),
+  );
+}
 export function ConversationTimeline({
   transcript,
   running,
@@ -96,6 +105,17 @@ export function ConversationTimeline({
     return markers;
   }, [annotationList]);
   const [expandedToolCallIds, setExpandedToolCallIds] = useState<Set<string>>(() => new Set());
+  const [expandedRunIds, setExpandedRunIds] = useState<Set<string>>(() => new Set());
+  const toggleRun = useCallback(
+    (id: string) =>
+      setExpandedRunIds((current) => {
+        const next = new Set(current);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
   const toggleToolCall = useCallback(
     (id: string) =>
       setExpandedToolCallIds((current) => {
@@ -114,7 +134,23 @@ export function ConversationTimeline({
       if ([...current].every((id) => available.has(id))) return current;
       return new Set([...current].filter((id) => available.has(id)));
     });
+    const runs = runIdsOf(transcript);
+    setExpandedRunIds((current) => {
+      if ([...current].every((id) => runs.has(id))) return current;
+      return new Set([...current].filter((id) => runs.has(id)));
+    });
   }, [transcript]);
+  // Find in thread walks the rendered DOM, and a collapsed run renders no rows, so while the
+  // search bar is open every run is expanded. Closing it restores the rows the user opened.
+  const searchRunIds = useMemo(
+    () => (threadSearch.isOpen ? runIdsOf(transcript) : NO_RUN_IDS),
+    [threadSearch.isOpen, transcript],
+  );
+  const visibleRunIds = useMemo(
+    () =>
+      searchRunIds.size === 0 ? expandedRunIds : new Set([...expandedRunIds, ...searchRunIds]),
+    [expandedRunIds, searchRunIds],
+  );
   const renderedMessageIndexById = useMemo(() => {
     const indices = new Map<string, number>();
     let index = 0;
@@ -175,6 +211,8 @@ export function ConversationTimeline({
                     generation={viewport.layoutGeneration}
                     expandedToolCallIds={expandedToolCallIds}
                     onToggleToolCall={toggleToolCall}
+                    expandedRunIds={visibleRunIds}
+                    onToggleRun={toggleRun}
                     onViewFileInDiff={onViewFileInDiff}
                     onOpenTurnChange={onOpenTurnChange}
                     sourceMessageIndex={renderedMessageIndexById.get(item.id)}
@@ -286,6 +324,8 @@ interface MeasuredTimelineItemProps {
   readonly generation: number;
   readonly expandedToolCallIds: ReadonlySet<string>;
   readonly onToggleToolCall: (callId: string) => void;
+  readonly expandedRunIds: ReadonlySet<string>;
+  readonly onToggleRun: (runId: string) => void;
   readonly onViewFileInDiff?: (path: string) => void;
   readonly onOpenTurnChange?: OpenTurnChange;
   readonly sourceMessageIndex?: number;
@@ -307,6 +347,8 @@ function MeasuredTimelineItemBase({
   generation,
   expandedToolCallIds,
   onToggleToolCall,
+  expandedRunIds,
+  onToggleRun,
   onViewFileInDiff,
   onOpenTurnChange,
   sourceMessageIndex,
@@ -355,6 +397,8 @@ function MeasuredTimelineItemBase({
           item={item}
           expandedToolCallIds={expandedToolCallIds}
           onToggleToolCall={onToggleToolCall}
+          expandedRunIds={expandedRunIds}
+          onToggleRun={onToggleRun}
           onViewFileInDiff={onViewFileInDiff}
           onOpenTurnChange={onOpenTurnChange}
           sourceMessageIndex={sourceMessageIndex}
@@ -404,6 +448,16 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
       a.metadata === b.metadata
     );
   }
+  if (a.kind === "tool-run" && b.kind === "tool-run") {
+    // The collapsed row draws the count and the live/failed tail, nothing else.
+    return (
+      a.tools.length === b.tools.length &&
+      a.tools.every(
+        (tool, index) =>
+          tool.callId === b.tools[index]?.callId && tool.status === b.tools[index]?.status,
+      )
+    );
+  }
   if (a.kind === "activity" && b.kind === "activity") {
     return (
       a.label === b.label && a.detail === b.detail && a.metadata === b.metadata && a.tone === b.tone
@@ -446,6 +500,8 @@ function areMeasuredTimelineItemPropsEqual(
     prev.onHeightChange === next.onHeightChange &&
     prev.expandedToolCallIds === next.expandedToolCallIds &&
     prev.onToggleToolCall === next.onToggleToolCall &&
+    prev.expandedRunIds === next.expandedRunIds &&
+    prev.onToggleRun === next.onToggleRun &&
     prev.onViewFileInDiff === next.onViewFileInDiff &&
     prev.onOpenTurnChange === next.onOpenTurnChange &&
     prev.sourceMessageIndex === next.sourceMessageIndex &&

@@ -21,6 +21,8 @@ export interface RuntimeProviderRecord {
   readonly authType: RuntimeAuthType;
   readonly authSource: RuntimeProviderAuthSource;
   readonly oauthSupported: boolean;
+  /** The current credential bills a flat subscription, so token prices are an estimate. */
+  readonly isSubscription: boolean;
   readonly apiKeySetupSupported: boolean;
 }
 

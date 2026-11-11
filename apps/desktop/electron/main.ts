@@ -25,6 +25,8 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { augmentPosixPath } from "../scripts/augment-path.cjs";
 import { DesktopAppStore } from "./application/app-store";
+import { readTodaySpend } from "./application/spend-today";
+import { readCodexLimits } from "./application/codex-limits";
 import { TOOL_IMAGE_SCHEME } from "../contracts/tool-output-images";
 import { WindowOwner } from "./windows/window-owner";
 import { PendingComposerDraftFlusher } from "./windows/pending-draft-flush";
@@ -1181,6 +1183,8 @@ app
           devReloadMarkersEnabled
             ? `pi desktop ready:${MAIN_DEV_RELOAD_MARKER}`
             : "pi desktop ready",
+        readTodaySpend,
+        readCodexLimits,
         theme: themeManager,
         editors: editorService,
         openExternal: openExternalLink,

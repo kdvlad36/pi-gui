@@ -2751,15 +2751,21 @@
   height: 14px;
 }
 
+/* Two lines, not one: several extensions keep a status at once, and a single clipped line hid
+   whichever one loaded last. */
 .extension-dock__summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
   font-size: 13px;
   font-weight: 560;
+  line-height: 1.35;
   letter-spacing: -0.01em;
+  white-space: normal;
 }
 
 .extension-dock__chevron {

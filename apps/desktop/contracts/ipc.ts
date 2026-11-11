@@ -15,6 +15,7 @@ import type {
 } from "@pi-gui/session-driver/types";
 import type { ClipboardImageRead } from "./composer-attachments";
 import type { DesktopEditorList } from "./editors";
+import type { CodexLimitsResult, TodaySpendSnapshot } from "./spend";
 import type { SessionRef } from "@pi-gui/session-driver/types";
 import type { SaveTaskWorkbenchTemplateInput, TaskWorkbenchTemplate } from "./workbench";
 import type {
@@ -118,6 +119,8 @@ export const desktopIpc = {
   extensionViewCatalogChanged: "pi-gui:extension-view-catalog-changed",
   stateRequest: "pi-gui:state-request",
   stateChanged: "pi-gui:state-changed",
+  readTodaySpend: "pi-gui:read-today-spend",
+  readCodexLimits: "pi-gui:read-codex-limits",
   getTaskWorkbenchTemplate: "pi-gui:get-task-workbench-template",
   saveTaskWorkbenchTemplate: "pi-gui:save-task-workbench-template",
   selectedTranscriptRequest: "pi-gui:selected-transcript-request",
@@ -728,6 +731,8 @@ export interface PiDesktopApi {
   versions: NodeJS.ProcessVersions;
   ping(): Promise<string>;
   getState(): Promise<DesktopAppState>;
+  readTodaySpend(): Promise<TodaySpendSnapshot>;
+  readCodexLimits(): Promise<CodexLimitsResult>;
   getTaskWorkbenchTemplate(target: SessionRef): Promise<TaskWorkbenchTemplate | null>;
   saveTaskWorkbenchTemplate(input: SaveTaskWorkbenchTemplateInput): Promise<void>;
   onStateChanged(listener: PiDesktopStateListener): () => void;

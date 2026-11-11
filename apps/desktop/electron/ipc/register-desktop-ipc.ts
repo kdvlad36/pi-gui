@@ -18,6 +18,7 @@ import {
   type CustomProviderProbeInput,
   type CustomProviderProbeResult,
 } from "../../contracts/ipc";
+import type { CodexLimitsResult, TodaySpendSnapshot } from "../../contracts/spend";
 import type { DesktopAppStore } from "../application/app-store";
 import type { NotificationPermissionService } from "../platform/notification-permission";
 import type { EditorService } from "../platform/editors/editor-service";
@@ -185,6 +186,8 @@ export interface DesktopIpcOwners {
 
 export interface DesktopIpcCapabilities {
   readonly ping: () => string;
+  readonly readTodaySpend: () => TodaySpendSnapshot;
+  readonly readCodexLimits: () => Promise<CodexLimitsResult>;
   readonly theme: ThemeManager;
   readonly editors: EditorService;
   readonly openExternal: (url: string) => Promise<void>;
@@ -344,6 +347,14 @@ export function registerDesktopIpc({
   ipcMain.handle(desktopIpc.stateRequest, (event) =>
     owners.state.getStateForView(windows.viewForSender(event.sender)),
   );
+  ipcMain.handle(desktopIpc.readTodaySpend, (event) => {
+    windows.windowForSender(event.sender);
+    return capabilities.readTodaySpend();
+  });
+  ipcMain.handle(desktopIpc.readCodexLimits, (event) => {
+    windows.windowForSender(event.sender);
+    return capabilities.readCodexLimits();
+  });
   ipcMain.handle(desktopIpc.selectedTranscriptRequest, (event) =>
     owners.state.getSelectedTranscriptForView(windows.viewForSender(event.sender)),
   );

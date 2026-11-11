@@ -36,6 +36,7 @@ test("model options list available models that pi's enabledModels scope includes
         authType: "api_key",
         authSource: "auth_file",
         oauthSupported: false,
+        isSubscription: false,
         apiKeySetupSupported: true,
       },
     ],

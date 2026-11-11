@@ -31,6 +31,8 @@ export function estimateRowHeight(item: DisplayTimelineItem, width: number): num
       return 50 + (bodyRows ? 12 + bodyRows * 34 : 0);
     }
     case "tool":
+    // A collapsed run is one line; the measured height replaces this estimate once it renders.
+    case "tool-run":
       return 52;
     case "summary":
       return item.presentation === "divider" ? 44 : 38;
@@ -69,6 +71,16 @@ export function sameRowContent(a: DisplayTimelineItem, b: DisplayTimelineItem): 
         a.detail === b.detail &&
         a.label === b.label &&
         a.metadata === b.metadata
+      );
+    case "tool-run":
+      // Statuses flip as results arrive, and that is the only thing the collapsed row draws.
+      return (
+        b.kind === a.kind &&
+        a.tools.length === b.tools.length &&
+        a.tools.every(
+          (tool, index) =>
+            tool.callId === b.tools[index]?.callId && tool.status === b.tools[index]?.status,
+        )
       );
     case "summary":
       return b.kind === a.kind && a.label === b.label && a.presentation === b.presentation;

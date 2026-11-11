@@ -36,3 +36,8 @@ index.html
 
 # Local verification evidence (verify-pi-gui runs, proof workspaces)
 /.artifacts/
+
+# Локальные бэкапы пакетов приложения и собранный кандидат
+/install-backup/
+/apps/desktop/release-candidate/
+/release-candidate/

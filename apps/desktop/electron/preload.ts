@@ -35,6 +35,7 @@ import {
 import type { ExtensionActionEffect, ExtensionActionRequest } from "../contracts/extension-actions";
 import type { ClipboardImageRead } from "../contracts/composer-attachments";
 import type { DesktopEditorList } from "../contracts/editors";
+import type { CodexLimitsResult, TodaySpendSnapshot } from "../contracts/spend";
 import type { SaveTaskWorkbenchTemplateInput, TaskWorkbenchTemplate } from "../contracts/workbench";
 import type {
   TurnChangesInput,
@@ -124,6 +125,10 @@ contextBridge.exposeInMainWorld("piApp", {
   versions: process.versions,
   ping: () => ipcRenderer.invoke(desktopIpc.ping) as Promise<string>,
   getState: () => ipcRenderer.invoke(desktopIpc.stateRequest) as Promise<DesktopAppState>,
+  readTodaySpend: () =>
+    ipcRenderer.invoke(desktopIpc.readTodaySpend) as Promise<TodaySpendSnapshot>,
+  readCodexLimits: () =>
+    ipcRenderer.invoke(desktopIpc.readCodexLimits) as Promise<CodexLimitsResult>,
   getTaskWorkbenchTemplate: (target: SessionRef) =>
     ipcRenderer.invoke(
       desktopIpc.getTaskWorkbenchTemplate,

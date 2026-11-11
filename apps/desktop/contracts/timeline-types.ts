@@ -89,5 +89,21 @@ export interface TimelineWorkingIndicator {
   readonly startedAt?: string;
 }
 
+/**
+ * Consecutive tool calls with no prose between them, drawn as one collapsible row so a turn of
+ * twenty calls does not push the reply off screen. Derived at render time from the transcript,
+ * never persisted. A failed call is listed below the group instead of inside it, so a failure is
+ * never hidden by a collapsed run.
+ */
+export interface TimelineToolRun {
+  readonly kind: "tool-run";
+  readonly id: string;
+  readonly tools: readonly TimelineToolCall[];
+}
+
 export type DisplayTimelineItem =
-  TimelineTranscriptItem | TimelineTurnMarker | TimelineTurnChanges | TimelineWorkingIndicator;
+  | TimelineTranscriptItem
+  | TimelineTurnMarker
+  | TimelineTurnChanges
+  | TimelineWorkingIndicator
+  | TimelineToolRun;

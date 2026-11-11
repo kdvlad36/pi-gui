@@ -138,6 +138,7 @@ import {
   extensionNoticeTimerId,
   removeExtensionNotice,
 } from "../extensions/extension-notices";
+import { resolvePiAgentDir } from "../platform/pi-agent-dir";
 import { appWorktreeRootMatcher } from "../platform/worktrees/app-worktree-roots";
 import { GitWorktreeManager } from "../platform/worktrees/worktree-manager";
 import { createWorkspaceOwner, type WorkspaceOwner } from "../workspace/app-store-workspace";
@@ -4925,13 +4926,7 @@ function withHomeAsTilde(path: string): string {
 }
 
 function resolveGlobalSettingsPath(): string {
-  const override = process.env.PI_CODING_AGENT_DIR;
-  const agentDir = override
-    ? override.startsWith("~")
-      ? join(homedir(), override.slice(1))
-      : override
-    : join(homedir(), ".pi", "agent");
-  return join(agentDir, "settings.json");
+  return join(resolvePiAgentDir(), "settings.json");
 }
 
 async function readProjectModelSettingsFile(
