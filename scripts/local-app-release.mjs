@@ -308,8 +308,20 @@ function commandRelease(repo, args) {
       env: { ...process.env, PI_GUI_REPO: repo, PI_APP_VERSION: tag },
     });
   }
+  const installed = args.app ?? "/Applications/pi-gui.app";
+  const asar = join(installed, "Contents", "Resources", "app.asar");
+  if (!args.skipBuild) {
+    const found = Number(
+      (execFileSync("grep", ["-a", "-c", "-F", tag, asar], { encoding: "utf8" }) || "0").trim(),
+    );
+    if (found === 0) {
+      console.error(`\nВ установленном пакете нет тега ${tag}: сборка прошла без PI_APP_VERSION`);
+      return 1;
+    }
+  }
   git(repo, ["tag", "-a", tag, "-m", `Локальная выкатка ${tag}`], { stdio: ["ignore", "inherit", "inherit"] });
-  console.log(`\nТег ${tag} поставлен. Откат: make app-release-rollback`);
+  console.log(`\nТег ${tag} поставлен, версия видна в настройках, раздел About.`);
+  console.log(`Откат: bash ${join(homedir(), ".pi", "agent", "skills", "pi-gui-install", "scripts", "restore.sh")}`);
   return 0;
 }
 
