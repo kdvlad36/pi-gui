@@ -33,6 +33,7 @@ import { BgJobMessage } from "./bg-job-message";
 import { stringifyToolValue, toolOutputImages } from "./tool-output-images";
 import { isEmptySearch } from "./tool-search-outcome";
 import { TurnChangesCard, type OpenTurnChange } from "./turn-changes-card";
+import { MessageRewindButton } from "./message-rewind";
 import type { WorkspaceFileLine } from "./workspace-file-line";
 import { InlineDiff, extractDiffFromOutput } from "../../ui/diff-inline";
 import {
@@ -234,6 +235,9 @@ function TimelineMessage({
             {annotated ? <SentAnnotations annotations={annotated.annotations} /> : null}
             {annotated && !body.trim() ? null : <MessageMarkdown annotationRoot text={body} />}
           </div>
+          {!crossProject && !scheduledOrigin ? (
+            <MessageRewindButton messageId={item.sourceMessageId ?? item.id} />
+          ) : null}
         </div>
         {markers}
       </article>

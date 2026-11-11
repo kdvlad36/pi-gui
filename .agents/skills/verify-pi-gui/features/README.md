@@ -44,6 +44,7 @@ These user-facing surfaces have no feature file and no `prove.sh` checkpoint yet
 - Extension notify toast above the composer and extension messages in the transcript, `apps/desktop/src/features/extensions/extension-notices.tsx` and `apps/desktop/src/features/conversation/timeline-item.tsx`; core `extension-notices.spec.ts`, `extension-custom-messages.spec.ts`.
 - Theme presets built from seed colours, Settings > Appearance; core `settings-appearance.spec.ts`.
 - Browse branches (session tree), `apps/desktop/src/features/conversation/tree-modal.tsx`; core `tree-command.spec.ts`.
+- [Возврат отправленного сообщения](message-rewind.md), кнопка под сообщением, условный вопрос об откате файлов; core `message-rewind.spec.ts`, unit `message-rewind-files.spec.ts` и `message-rewind-owner.spec.ts`.
 - Extension cards in the transcript and their buttons, `apps/desktop/src/features/conversation/extension-card.tsx`; core `extension-cards.spec.ts`, `extension-card-actions.spec.ts`.
 - Pinned extension cards above the composer (Expand/Collapse, Hide), `apps/desktop/src/features/extensions/pinned-cards.tsx`; core `extension-pinned-cards.spec.ts`.
 - Extension views opening links and threads, `apps/desktop/electron/extensions/extension-view-actions.ts`; core `extension-view-links.spec.ts`. The GitHub, Usage and Trace examples under `examples/desktop-extensions/` have core `extension-github-view`, `extension-usage-view` and `extension-trace-view` specs.

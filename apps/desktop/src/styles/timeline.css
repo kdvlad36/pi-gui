@@ -1339,3 +1339,30 @@
 .subagent-tool__details { margin: 2px 10px 10px 32px; font-size: 12px; overflow-wrap: anywhere; }
 .subagent-tool__details p { white-space: pre-wrap; }
 .subagent-tool__details pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+.timeline-item__actions--rewind {
+  justify-content: flex-end;
+  min-height: 30px;
+  margin-top: 5px;
+}
+.timeline-item__rewind {
+  width: 30px;
+  height: 30px;
+  padding: 6px;
+  border-radius: 7px;
+}
+.message-rewind-modal {
+  max-width: 420px;
+}
+.message-rewind-modal .tree-modal__title {
+  font-size: 17px;
+}
+.message-rewind-modal .tree-modal__actions {
+  justify-content: flex-end;
+}
+.timeline-item__rewind svg {
+  width: 17px;
+  height: 17px;
+}
+.timeline-item__rewind:hover:not(:disabled) {
+  border-color: transparent;
+}

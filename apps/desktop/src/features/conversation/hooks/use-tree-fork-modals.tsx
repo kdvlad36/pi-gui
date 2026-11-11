@@ -11,6 +11,39 @@ import {
 import { applySnapshotIfNewer } from "../../../app/desktop-app-state";
 import type { PiDesktopApi } from "../../../../contracts/ipc";
 import { resolveRepoWorkspaceId } from "../../../../contracts/workspace-roots";
+import { TreeModal } from "../tree-modal";
+import { ForkModal } from "../fork-modal";
+
+export function TreeForkModals({
+  modals,
+}: {
+  readonly modals: ReturnType<typeof useTreeForkModals>;
+}) {
+  return (
+    <>
+      {modals.treeModalState.open ? (
+        <TreeModal
+          error={modals.treeModalState.error}
+          loading={modals.treeModalState.loading}
+          submitting={modals.treeModalState.submitting}
+          tree={modals.treeModalState.tree}
+          onClose={modals.closeTreeModal}
+          onNavigate={modals.navigateTreeSelection}
+        />
+      ) : null}
+      {modals.forkModalState.open ? (
+        <ForkModal
+          error={modals.forkModalState.error}
+          submitting={modals.forkModalState.submitting}
+          messagePreview={modals.forkModalState.messagePreview}
+          canUseWorktree={modals.canUseWorktree}
+          onClose={modals.closeForkModal}
+          onSubmit={modals.handleForkSubmit}
+        />
+      ) : null}
+    </>
+  );
+}
 
 interface TreeModalState {
   readonly open: boolean;
