@@ -45,7 +45,9 @@ test("keeps extension widgets, status, and title scoped to the active session", 
     await composer.press("Enter");
 
     await expect(window.locator(".chat-header__title")).toHaveText("Marked by extension");
-    await expect(window.getByTestId("extension-dock-summary")).toHaveText("Session marked");
+    await expect(window.getByTestId("extension-dock-summary")).toHaveText(
+      "Session marked · Marked widget · Marked below",
+    );
     await window.getByTestId("extension-dock-toggle").click();
     await expect(window.getByTestId("extension-dock-body")).toContainText("Marked widget");
     await expect(window.getByTestId("extension-dock-body")).toContainText("Marked below");
@@ -56,7 +58,9 @@ test("keeps extension widgets, status, and title scoped to the active session", 
 
     await clickSession(window, "Session A");
     await expect(window.locator(".chat-header__title")).toHaveText("Marked by extension");
-    await expect(window.getByTestId("extension-dock-summary")).toHaveText("Session marked");
+    await expect(window.getByTestId("extension-dock-summary")).toHaveText(
+      "Session marked · Marked widget · Marked below",
+    );
     await expect(window.getByTestId("extension-dock-body")).toContainText("Marked widget");
   } finally {
     await harness.close();
