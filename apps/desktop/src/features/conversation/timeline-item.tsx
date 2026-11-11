@@ -1,4 +1,5 @@
 import { useMemo, useRef } from "react";
+import { SubagentTool, subagentTasks } from "./subagent-tool";
 import type {
   SessionTranscriptCustomMessage,
   SessionTranscriptMessage,
@@ -101,7 +102,9 @@ export function TimelineItem({
       );
     case "activity":
       return <TimelineActivityItem item={item} />;
-    case "tool":
+    case "tool": {
+      const tasks = subagentTasks(item);
+      if (tasks) return <SubagentTool item={item} tasks={tasks} />;
       return (
         <TimelineToolCallItem
           item={item}
@@ -110,6 +113,7 @@ export function TimelineItem({
           onViewFileInDiff={onViewFileInDiff}
         />
       );
+    }
     case "tool-run":
       return (
         <TimelineToolRunItem

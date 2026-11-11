@@ -95,6 +95,8 @@ export {
 export type { ExtensionAction, ExtensionActionType } from "./extension-actions.js";
 export { parseExtensionAction, parseExtensionUrl } from "./extension-actions.js";
 export { sessionKey } from "./identity.js";
+export { applySubagentRunNotices, subagentRunNotices } from "./subagent-notification.js";
+export type { SubagentRunNotice } from "./subagent-notification.js";
 export type {
   TurnCaptureOpening,
   TurnCaptureClosing,

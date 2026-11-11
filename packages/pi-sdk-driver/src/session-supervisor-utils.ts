@@ -28,6 +28,8 @@ import type {
 import {
   EXTENSION_CARD_CUSTOM_TYPE,
   EXTENSION_PIN_CUSTOM_TYPE,
+  applySubagentRunNotices,
+  subagentRunNotices,
   parseExtensionAction,
 } from "@pi-gui/session-driver";
 import type { SessionQueuedMessage } from "@pi-gui/session-driver/types";
@@ -413,7 +415,8 @@ function transcriptFromSources(
         typeof message.id === "string" ? message.id : `custom-${index}`,
         createdAt,
       );
-      if (item) transcript.push(item);
+      if (item?.subagentRuns) applySubagentRunNotices(transcript, item.subagentRuns);
+      if (item && !item.hostOnly) transcript.push(item);
       continue;
     }
 
@@ -457,15 +460,20 @@ export function customMessageTranscriptItem(
   id: string,
   createdAt: string,
 ): SessionTranscriptCustomMessage | undefined {
-  if (message.role !== "custom" || message.display !== true) return undefined;
-  const text = messageText(message);
-  if (!text) return undefined;
+  if (message.role !== "custom") return undefined;
+  const runs = subagentRunNotices(message);
+  const hostOnly = message.display !== true;
+  if (hostOnly && runs.length === 0) return undefined;
+  const text = hostOnly ? "" : messageText(message);
+  if (!text && runs.length === 0) return undefined;
   return {
     kind: "custom",
     id,
     createdAt,
     customType: typeof message.customType === "string" ? message.customType : "custom",
     text,
+    ...(runs.length ? { subagentRuns: runs } : {}),
+    ...(hostOnly ? { hostOnly: true } : {}),
   };
 }
 

@@ -1,4 +1,4 @@
-import { isCardEntryItem, sessionKey } from "@pi-gui/session-driver";
+import { applySubagentRunNotices, isCardEntryItem, sessionKey } from "@pi-gui/session-driver";
 import type { SessionTranscriptItem, SessionTranscriptPin } from "@pi-gui/session-driver";
 import type { SessionDriverEvent, SessionQueuedMessage, SessionRef } from "@pi-gui/session-driver";
 import type { TranscriptMessage } from "../../contracts/desktop-state";
@@ -321,6 +321,10 @@ export function applyTimelineEvent(
       transcript.push(makeActivityItem("Stopped", { metadata: relativeDetail(event.timestamp) }));
       break;
     case "transcriptItemAppended": {
+      if (event.item.kind === "custom" && event.item.subagentRuns) {
+        applySubagentRunNotices(transcript, event.item.subagentRuns);
+        if (event.item.hostOnly) break;
+      }
       // A pin shows above the composer, so it never ends or moves a streaming reply.
       if (event.item.kind === "pin") {
         upsertPin(transcript, event.item);

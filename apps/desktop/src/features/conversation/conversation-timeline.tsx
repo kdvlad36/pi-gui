@@ -442,6 +442,7 @@ function isSameDisplayItem(a: DisplayTimelineItem, b: DisplayTimelineItem): bool
     // label/detail/metadata strings, so compare those instead.
     return (
       a.status === b.status &&
+      (a.toolName !== "subagent" || JSON.stringify(a.output) === JSON.stringify(b.output)) &&
       a.toolName === b.toolName &&
       a.label === b.label &&
       a.detail === b.detail &&
